@@ -30,11 +30,30 @@
   --color-white-30: rgb(255 255 255 / 0.3);
   --color-white-20: rgb(255 255 255 / 0.2);
   --color-white-10: rgb(255 255 255 / 0.1);
+  /* a picked or primary control: white with canvas-coloured text on aaa. */
+  --color-solid: #fff;
+  --color-on-solid: var(--color-bg);
+  --color-solid-line: #fff;
 }
 
-/* laaabs. edition: black canvas, white on top, cyan only as a signal */
+/* laaabs. edition: black canvas, white on top, cyan only as a signal.
+   a picked or primary control is the cyan wash, never a solid cyan surface,
+   and nothing is a pill: 10px radius */
 html[data-brand='laaabs'] {
   --color-bg: #0a0a0a;
+  --color-solid: rgb(0 181 226 / 0.2);
+  --color-on-solid: #00b5e2;
+  --color-solid-line: rgb(0 181 226 / 0.3);
+}
+html[data-brand='laaabs'] :is(button, input, a).rounded-full:not([role='switch']) {
+  border-radius: 10px;
+}
+html[data-brand='laaabs'] .bg-solid {
+  border: 1px solid var(--color-solid-line);
+}
+html[data-brand='laaabs'] :is(button, input, textarea, a):focus-visible {
+  outline: 2px solid #00b5e2;
+  outline-offset: 2px;
 }
 
 html,

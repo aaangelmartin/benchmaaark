@@ -41,7 +41,7 @@ export function Pills<T extends string | number>({
           onClick={() => onChange(o.value)}
           className={`rounded-full px-3 py-1 text-xs font-semibold lowercase transition-opacity duration-300 active:scale-[0.97] ${
             o.value === value
-              ? 'bg-white text-bg'
+              ? 'bg-solid text-on-solid'
               : 'border border-white-30 text-white-80 hover:text-white'
           }`}
         >
@@ -142,7 +142,7 @@ export function Button({
       title={title}
       className={`inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold tracking-wide lowercase transition-opacity duration-300 active:scale-[0.97] disabled:opacity-40 ${
         solid
-          ? 'bg-white text-bg hover:opacity-90'
+          ? 'bg-solid text-on-solid hover:opacity-90'
           : 'border-2 border-white-50 text-white hover:border-white'
       }`}
     >
@@ -166,7 +166,7 @@ export function Chip({
     <span
       onClick={onClick}
       className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium lowercase ${
-        active ? 'border-white bg-white text-bg' : 'border-white-30 text-white-80'
+        active ? 'border-solid-line bg-solid text-on-solid' : 'border-white-30 text-white-80'
       } ${onClick ? 'cursor-pointer hover:border-white' : ''}`}
     >
       {children}

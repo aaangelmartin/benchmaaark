@@ -295,6 +295,9 @@ export function App() {
                 onClick={() => go(id)}
                 className={`transition-opacity duration-300 ${view === id ? 'opacity-100' : 'opacity-50 hover:opacity-80'}`}
               >
+                {BRAND.id === 'laaabs' && view === id && (
+                  <span className="mr-1.5 mb-0.5 inline-block h-1 w-1 rounded-full bg-[#00b5e2] align-middle" />
+                )}
                 {label}
               </button>
             ))}

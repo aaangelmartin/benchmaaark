@@ -101,20 +101,15 @@ export function Gallery({
       : format === 'landscape' || format === 'og'
         ? 'sm:grid-cols-2 lg:grid-cols-3'
         : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+  // one section per source, its curated charts first
   const groups: Array<{ title: string; entries: Entry[] }> =
-    source === 'all' && kind === 'all' && !q
-      ? [
-          { title: 'destacadas', entries: shown.filter((e) => e.featured) },
-          ...sources.map((s) => ({
-            title: sourceName(s),
-            entries: shown.filter((e) => e.source === s && !e.featured),
-          })),
-        ]
+    source === 'all' && !q
+      ? sources.map((s) => ({ title: sourceName(s), entries: shown.filter((e) => e.source === s) }))
       : [{ title: '', entries: shown }]
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-12 md:px-6">
-      <div className="mb-10 flex flex-wrap items-end justify-between gap-6">
+    <div className="pb-12">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-6 px-4 pt-12 pb-10 md:px-6">
         <div>
           <h1 className="mb-3 text-3xl font-bold tracking-[-0.03em] md:text-5xl">
             gráficas de modelos de ia
@@ -130,66 +125,69 @@ export function Gallery({
         </Button>
       </div>
 
-      <div className="sticky top-14 z-20 -mx-4 mb-10 space-y-3 border-b border-white-20 bg-bg px-4 py-3 md:-mx-6 md:px-6">
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-          <FilterRow label="fuente">
-            <Chip on={source === 'all'} onClick={() => setSource('all')}>
-              todas <Num>{all.length}</Num>
-            </Chip>
-            {sources.map((s) => (
-              <Chip key={s} on={source === s} onClick={() => setSource(s)}>
-                {sourceName(s)} <Num>{count((e) => e.source === s)}</Num>
+      {/* the bar runs the full width of the page, its content stays on the grid */}
+      <div className="sticky top-14 z-20 mb-10 border-b border-white-20 bg-bg">
+        <div className="mx-auto max-w-7xl space-y-3 px-4 py-3 md:px-6">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <FilterRow label="fuente">
+              <Chip on={source === 'all'} onClick={() => setSource('all')}>
+                todas <Num>{all.length}</Num>
               </Chip>
-            ))}
-          </FilterRow>
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-          <FilterRow label="tipo">
-            <Chip on={kind === 'all'} onClick={() => setKind('all')}>
-              todos
-            </Chip>
-            <Chip on={kind === 'featured'} onClick={() => setKind('featured')}>
-              destacadas
-            </Chip>
-            {kinds.map((k) => (
-              <Chip key={k} on={kind === k} onClick={() => setKind(k)}>
-                {KIND_LABEL[k].es}
+              {sources.map((s) => (
+                <Chip key={s} on={source === s} onClick={() => setSource(s)}>
+                  {sourceName(s)} <Num>{count((e) => e.source === s)}</Num>
+                </Chip>
+              ))}
+            </FilterRow>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+            <FilterRow label="tipo">
+              <Chip on={kind === 'all'} onClick={() => setKind('all')}>
+                todos
               </Chip>
-            ))}
-          </FilterRow>
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="buscar gráfica"
-              className={`${inputClass} !w-44 !rounded-full !py-1 text-xs`}
-            />
-            <Pills
-              value={locale}
-              options={[
-                { value: 'es', label: 'es' },
-                { value: 'en', label: 'en' },
-              ]}
-              onChange={onLocale}
-            />
-            <Pills
-              value={format}
-              options={(Object.keys(FORMATS) as FormatId[]).map((f) => ({
-                value: f,
-                label: FORMATS[f].label,
-                hint: FORMATS[f].hint,
-              }))}
-              onChange={setFormat}
-            />
-            <Button
-              disabled={!!busy || shown.length === 0}
-              onClick={() => onExportAll(shown, format)}
-              title="descargar en un zip las gráficas que se ven ahora, en es y en"
-            >
-              {busy?.startsWith('templates')
-                ? busy.replace('templates', 'zip')
-                : `exportar ${shown.length}`}
-            </Button>
+              <Chip on={kind === 'featured'} onClick={() => setKind('featured')}>
+                destacadas
+              </Chip>
+              {kinds.map((k) => (
+                <Chip key={k} on={kind === k} onClick={() => setKind(k)}>
+                  {KIND_LABEL[k].es}
+                </Chip>
+              ))}
+            </FilterRow>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="buscar gráfica"
+                className={`${inputClass} !w-44 !rounded-full !py-1 text-xs`}
+              />
+              <Pills
+                value={locale}
+                options={[
+                  { value: 'es', label: 'es' },
+                  { value: 'en', label: 'en' },
+                ]}
+                onChange={onLocale}
+              />
+              <Pills
+                value={format}
+                options={(Object.keys(FORMATS) as FormatId[]).map((f) => ({
+                  value: f,
+                  label: FORMATS[f].label,
+                  hint: FORMATS[f].hint,
+                }))}
+                onChange={setFormat}
+              />
+              <Button
+                disabled={!!busy || shown.length === 0}
+                onClick={() => onExportAll(shown, format)}
+                title="descargar en un zip las gráficas que se ven ahora, en es y en"
+              >
+                {busy?.startsWith('templates')
+                  ? busy.replace('templates', 'zip')
+                  : `exportar ${shown.length}`}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -197,7 +195,7 @@ export function Gallery({
       {shown.length === 0 && (
         <p className="py-20 text-center text-white-50">ninguna gráfica con esos filtros.</p>
       )}
-      <div className="space-y-14">
+      <div className="mx-auto max-w-7xl space-y-14 px-4 md:px-6">
         {groups
           .filter((g) => g.entries.length)
           .map((g) => (
@@ -252,7 +250,7 @@ function Chip({
   return (
     <button
       onClick={onClick}
-      className={`rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap transition-colors ${on ? 'bg-white text-bg' : 'border border-white-30 text-white-80 hover:border-white hover:text-white'}`}
+      className={`rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap transition-colors ${on ? 'bg-solid text-on-solid' : 'border border-white-30 text-white-80 hover:border-white hover:text-white'}`}
     >
       {children}
     </button>

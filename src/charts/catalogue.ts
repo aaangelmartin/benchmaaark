@@ -6,7 +6,7 @@
 import type { Dataset, MetricDef, SourceId, Text } from '../lib/types.ts'
 import { applyTemplate, type ChartSpec, DEFAULT_SPEC, type Template, TEMPLATES } from './spec.ts'
 
-export type Kind = 'featured' | 'bars' | 'efforts' | 'scatter' | 'timeline' | 'table'
+export type Kind = 'featured' | 'bars' | 'efforts' | 'scatter' | 'timeline' | 'table' | 'compare'
 
 export interface Entry {
   id: string
@@ -23,6 +23,7 @@ export const KIND_LABEL: Record<Exclude<Kind, 'featured'>, Text> = {
   scatter: { es: 'dispersión', en: 'scatter' },
   timeline: { es: 'evolución', en: 'over time' },
   table: { es: 'tabla', en: 'table' },
+  compare: { es: 'comparativa', en: 'comparison' },
 }
 
 export const SOURCE_ORDER: SourceId[] = ['cursor', 'aa', 'epoch', 'lmarena', 'openrouter', 'manual']
@@ -39,7 +40,7 @@ const lower = (t: Text): Text => ({ es: t.es.toLowerCase(), en: t.en.toLowerCase
 
 function kindOf(t: Template): Exclude<Kind, 'featured'> {
   const type = t.spec.type ?? 'scatter'
-  if (type === 'compare' || type === 'table') return 'table'
+  if (type === 'compare' || type === 'table') return type
   if (type === 'bars' && t.spec.options?.efforts === 'all') return 'efforts'
   return type
 }
@@ -147,7 +148,7 @@ export function catalogue(data: Dataset): Entry[] {
         })
       }
 
-      if ((m.count ?? 0) >= 40 && m.unit !== 'usd_per_mtok' && m.category !== 'context') {
+      if ((m.count ?? 0) >= 8) {
         add(source, {
           id: `${m.id}--timeline`,
           name: { es: `${name.es} en el tiempo`, en: `${name.en} over time` },
@@ -193,21 +194,41 @@ export function catalogue(data: Dataset): Entry[] {
     if (source === 'openrouter') pair('context', 'price-blended', true)
 
     const head = metrics.filter((m) => !m.pairedWith).slice(0, 5)
-    if (head.length >= 2) {
+    const cols = [
+      ...head.slice(0, 3),
+      ...metrics.filter((m) => m.pairedWith === head[0]?.id),
+    ].slice(0, 6)
+    if (cols.length >= 2) {
       add(source, {
         id: `${source}--table`,
         name: { es: 'tabla resumen', en: 'summary table' },
         spec: {
           type: 'table',
-          metrics: head.map((m) => m.id),
+          metrics: cols.map((m) => m.id),
           title: null,
           subtitle: null,
-          filter: { top: 12, rankBy: head[0].id, sinceMonths: null },
+          filter: { top: 12, rankBy: cols[0].id, sinceMonths: null },
+        },
+      })
+      add(source, {
+        id: `${source}--compare`,
+        name: { es: 'comparativa de modelos', en: 'model comparison' },
+        spec: {
+          type: 'compare',
+          metrics: cols.map((m) => m.id),
+          title: null,
+          subtitle: null,
+          filter: { top: 4, rankBy: cols[0].id, sinceMonths: null },
         },
       })
     }
   }
-  return out
+  // curated charts lead their source
+  return out.sort(
+    (a, b) =>
+      SOURCE_ORDER.indexOf(a.source) - SOURCE_ORDER.indexOf(b.source) ||
+      Number(b.featured) - Number(a.featured),
+  )
 }
 
 export function entrySpec(e: Entry, base: Pick<ChartSpec, 'format' | 'locale'>): ChartSpec {
