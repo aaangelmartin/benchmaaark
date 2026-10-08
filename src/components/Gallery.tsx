@@ -78,6 +78,16 @@ export function Gallery({
   const [kind, setKind] = useState<Kind | 'all'>('all')
   const [format, setFormat] = useState<FormatId>('landscape')
   const [q, setQ] = useState('')
+  const bar = useRef<HTMLDivElement>(null)
+  const [barH, setBarH] = useState(110)
+  useEffect(() => {
+    if (!bar.current) return
+    const ro = new ResizeObserver(([e]) =>
+      setBarH(Math.round(e.target.getBoundingClientRect().height)),
+    )
+    ro.observe(bar.current)
+    return () => ro.disconnect()
+  }, [])
 
   const sourceName = (id: SourceId) =>
     data.sources.find((s) => s.id === id)?.name.toLowerCase() ?? id
@@ -107,7 +117,7 @@ export function Gallery({
 
   return (
     <div className="pb-12">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-6 px-4 pt-12 pb-10 md:px-6">
+      <div className="mx-auto max-w-7xl px-4 pt-12 pb-10 md:px-6">
         <div>
           <h1 className="mb-3 text-3xl font-bold tracking-[-0.03em] md:text-5xl">
             {L('gráficas de modelos de ia', 'charts of ai models')}
@@ -125,15 +135,13 @@ export function Gallery({
             )}
           </p>
         </div>
-        <Button solid onClick={onNew}>
-          {L('crear desde cero', 'start from scratch')}
-        </Button>
       </div>
 
-      {/* the bar runs the full width of the page, its content stays on the grid */}
-      <div className="sticky top-14 z-20 mb-10 border-b border-white-20 bg-bg">
+      {/* the bar runs the full width of the page, its content stays on the grid.
+          it stays put while you scroll, with "create new" always at hand */}
+      <div ref={bar} className="sticky top-14 z-20 mb-6 border-b border-white-20 bg-bg">
         <div className="mx-auto max-w-7xl space-y-3 px-4 py-3 md:px-6">
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
             <FilterRow label={L('fuente', 'source')}>
               <Chip on={source === 'all'} onClick={() => setSource('all')}>
                 {L('todas', 'all')} <Num>{all.length}</Num>
@@ -144,6 +152,9 @@ export function Gallery({
                 </Chip>
               ))}
             </FilterRow>
+            <Button solid onClick={onNew}>
+              {L('crear nueva', 'create new')}
+            </Button>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
             <FilterRow label={L('tipo', 'kind')}>
@@ -207,7 +218,11 @@ export function Gallery({
           .map((g) => (
             <section key={g.title}>
               {g.title && (
-                <h2 className="mb-5 flex items-baseline gap-3 text-xl font-bold tracking-[-0.03em]">
+                // stays under the filter bar, so you always know which source you are in
+                <h2
+                  style={{ top: 56 + barH }}
+                  className="sticky z-10 -mx-2 mb-5 flex items-baseline gap-3 bg-bg px-2 py-3 text-xl font-bold tracking-[-0.03em]"
+                >
                   {g.title}{' '}
                   <span className="text-sm font-medium text-white-50">{g.entries.length}</span>
                 </h2>

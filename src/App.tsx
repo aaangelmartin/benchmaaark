@@ -60,7 +60,7 @@ const slug = (s: string) =>
 export function App() {
   // read here so the whole tree re-renders when the language changes
   const lang = useLang()
-  const { data, error, status, refresh } = useDataset()
+  const { data, error, status } = useDataset()
   const initial = useMemo(fromHash, [])
   const [view, setView] = useState<View>(initial.view)
   const [spec, setSpec] = useState<ChartSpec>(
@@ -317,9 +317,9 @@ export function App() {
           />
           <span className="text-sm font-bold tracking-[-0.03em]">benchmaaark</span>
         </button>
-        <div className="flex items-center gap-5">
-          <DataBadge data={data} status={status} onRefresh={refresh} />
-          <nav className="flex gap-4 text-sm font-medium">
+        {/* same order as aaangelmartin.com: mark, links, language last */}
+        <div className="flex items-center gap-8">
+          <nav className="flex items-center gap-8">
             {(
               [
                 ['gallery', L('galería', 'gallery')],
@@ -334,7 +334,7 @@ export function App() {
               <button
                 key={id}
                 onClick={() => go(id)}
-                className={`transition-opacity duration-300 ${view === id ? 'opacity-100' : 'opacity-50 hover:opacity-80'}`}
+                className={`text-sm font-medium tracking-wide lowercase transition-opacity duration-300 ${view === id ? 'opacity-100' : 'opacity-50 hover:opacity-80'}`}
               >
                 {BRAND.id === 'laaabs' && view === id && (
                   <span className="mr-1.5 mb-0.5 inline-block h-1 w-1 rounded-full bg-[#00b5e2] align-middle" />
@@ -344,17 +344,25 @@ export function App() {
             ))}
           </nav>
           {CAN_SWITCH_LANG && (
-            <div className="flex gap-2 text-sm font-medium" aria-label={L('idioma', 'language')}>
-              {(['es', 'en'] as const).map((l) => (
-                <button
-                  key={l}
-                  onClick={() => setLang(l)}
-                  aria-pressed={lang === l}
-                  className={`transition-opacity duration-300 ${lang === l ? 'opacity-100' : 'opacity-50 hover:opacity-80'}`}
-                >
-                  {l}
-                </button>
-              ))}
+            <div
+              className="flex items-center gap-0.5 text-sm font-medium"
+              aria-label={L('idioma', 'language')}
+            >
+              <button
+                onClick={() => setLang('es')}
+                aria-pressed={lang === 'es'}
+                className={`px-1.5 py-0.5 transition-opacity duration-300 ${lang === 'es' ? 'opacity-100' : 'opacity-40 hover:opacity-70'}`}
+              >
+                es
+              </button>
+              <span className="opacity-30">/</span>
+              <button
+                onClick={() => setLang('en')}
+                aria-pressed={lang === 'en'}
+                className={`px-1.5 py-0.5 transition-opacity duration-300 ${lang === 'en' ? 'opacity-100' : 'opacity-40 hover:opacity-70'}`}
+              >
+                en
+              </button>
             </div>
           )}
         </div>
@@ -463,7 +471,7 @@ export function App() {
         {view === 'models' && <DataView data={data} onSelect={setModel} />}
       </div>
 
-      <Footer data={data} />
+      <Footer data={data} status={status} />
       {model && (
         <ModelDrawer
           data={data}
@@ -506,14 +514,14 @@ function Saved({
           </p>
         </div>
         <Button solid onClick={onNew}>
-          {L('crear desde cero', 'start from scratch')}
+          {L('crear nueva', 'create new')}
         </Button>
       </div>
       {saved.length === 0 ? (
         <p className="py-20 text-center text-white-50">
           {L(
-            'todavía no has editado ninguna gráfica. abre una de la galería o crea una desde cero.',
-            'you have not edited any chart yet. open one from the gallery or start from scratch.',
+            'todavía no has editado ninguna gráfica. abre una de la galería o crea una nueva.',
+            'you have not edited any chart yet. open one from the gallery or create a new one.',
           )}
         </p>
       ) : (
@@ -549,7 +557,7 @@ function Saved({
   )
 }
 
-function Footer({ data }: { data: Dataset }) {
+function Footer({ data, status }: { data: Dataset; status: DataStatus | null }) {
   const other =
     BRAND.id === 'aaa'
       ? {
@@ -577,7 +585,8 @@ function Footer({ data }: { data: Dataset }) {
                 {i < a.length - 1 ? ', ' : '. '}
               </span>
             ))}
-          {L('cada gráfica cita las fuentes que usa.', 'every chart credits the sources it uses.')}
+          {L('cada gráfica cita las fuentes que usa.', 'every chart credits the sources it uses.')}{' '}
+          <DataAge data={data} status={status} />
         </p>
         <div className="flex gap-5">
           <a href={other.href} className="hover:text-white">
@@ -600,15 +609,8 @@ function Footer({ data }: { data: Dataset }) {
   )
 }
 
-function DataBadge({
-  data,
-  status,
-  onRefresh,
-}: {
-  data: Dataset
-  status: DataStatus | null
-  onRefresh: () => void
-}) {
+// how old the data is. it refreshes on its own, so there is nothing to press
+function DataAge({ data, status }: { data: Dataset; status: DataStatus | null }) {
   const [, tick] = useState(0)
   useEffect(() => {
     const t = setInterval(() => tick((n) => n + 1), 60_000)
@@ -617,31 +619,21 @@ function DataBadge({
   const mins = Math.round((Date.now() - Date.parse(data.generatedAt)) / 60_000)
   const ago =
     mins < 1
-      ? L('ahora', 'just now')
+      ? L('ahora mismo', 'just now')
       : mins < 60
         ? L(`hace ${mins} min`, `${mins} min ago`)
         : mins < 48 * 60
           ? L(`hace ${Math.round(mins / 60)} h`, `${Math.round(mins / 60)} h ago`)
           : L(`hace ${Math.round(mins / 1440)} días`, `${Math.round(mins / 1440)} days ago`)
   return (
-    <div
-      className="hidden items-center gap-2 text-xs text-white-50 md:flex"
-      title={`${L('datos generados el', 'data generated on')} ${new Date(data.generatedAt).toLocaleString(getLang())}`}
-    >
-      <span>
-        {status?.running
-          ? L('actualizando datos...', 'refreshing data...')
-          : `${L('datos', 'data')} ${ago}`}
-      </span>
-      {status && !status.running && (
-        <button
-          onClick={onRefresh}
-          className="rounded-full border border-white-30 px-2.5 py-0.5 font-semibold text-white-80 hover:border-white hover:text-white"
-        >
-          {L('actualizar', 'refresh')}
-        </button>
-      )}
-    </div>
+    <span title={new Date(data.generatedAt).toLocaleString(getLang())}>
+      {status?.running
+        ? L('actualizando los datos...', 'refreshing the data...')
+        : L(
+            `datos actualizados ${ago}. se actualizan solos cada 6 horas.`,
+            `data updated ${ago}. it refreshes on its own every 6 hours.`,
+          )}
+    </span>
   )
 }
 

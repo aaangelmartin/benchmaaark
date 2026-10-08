@@ -11,8 +11,11 @@ export interface DataStatus {
 
 const url = (bust = '') => `${import.meta.env.BASE_URL}data/dataset.json${bust}`
 
-// loads the dataset and, under `pnpm dev`, reloads it whenever the background
-// refresh rewrites the file. the static build has no /api, so it just loads once.
+// loads the dataset and keeps it fresh on its own, with no button:
+//   under `pnpm dev` the vite plugin rebuilds it when it gets old, and this
+//   reloads it the moment the file changes
+//   on the published site the deploy rebuilds it every 6 hours, and this
+//   re-reads the file every few minutes and swaps it in when it is newer
 export function useDataset() {
   const [data, setData] = useState<Dataset | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -32,6 +35,8 @@ export function useDataset() {
   }, [])
 
   const poll = useCallback(async () => {
+    // the refresh api only exists under `pnpm dev`
+    if (!import.meta.env.DEV) return
     try {
       const r = await fetch(`${import.meta.env.BASE_URL}api/status`)
       if (!r.ok || !r.headers.get('content-type')?.includes('json')) return
@@ -52,15 +57,26 @@ export function useDataset() {
     return () => clearInterval(t)
   }, [load, poll])
 
-  const refresh = useCallback(async () => {
-    await fetch(`${import.meta.env.BASE_URL}api/refresh`, { method: 'POST' })
-    void poll()
-  }, [poll])
+  // published site: pick up a newer dataset without a page reload
+  useEffect(() => {
+    if (import.meta.env.DEV) return
+    const t = setInterval(async () => {
+      try {
+        const r = await fetch(url(`?t=${Date.now()}`), { cache: 'no-store' })
+        if (!r.ok) return
+        const next: Dataset = await r.json()
+        setData((cur) => (cur && cur.generatedAt === next.generatedAt ? cur : next))
+      } catch {
+        // offline or mid-deploy: keep what we have
+      }
+    }, 10 * 60_000)
+    return () => clearInterval(t)
+  }, [])
 
   // a failed first load (no dataset yet) retries once the refresh writes it
   useEffect(() => {
     if (error && status?.updatedAt) void load(`?t=${Date.parse(status.updatedAt)}`)
   }, [error, status?.updatedAt, load])
 
-  return { data, error, status, refresh }
+  return { data, error, status }
 }
