@@ -392,7 +392,7 @@ function StepBox({
   }, [open])
 
   return (
-    <section ref={ref} className="border-b border-white-20">
+    <section ref={ref} className="border-b border-white-20 last:border-b-0">
       <button onClick={onToggle} className="flex w-full items-center gap-3 px-5 py-4 text-left">
         {/* done: filled with a tick. current: a strong ring. still to do: faint */}
         <span
@@ -582,10 +582,10 @@ function MetricChooser({
               key={m.id}
               onClick={() => pick(m)}
               title={m.label[getLang()] + (m.description ? `. ${m.description[getLang()]}` : '')}
-              className={`flex items-baseline justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors ${isOn(m) ? 'border-solid-line bg-solid text-on-solid' : 'border-white-20 hover:border-white-50'}`}
+              className={`flex items-baseline justify-between gap-2 rounded-full border px-3 py-1 text-left text-xs font-semibold transition-colors ${isOn(m) ? 'border-solid-line bg-solid text-on-solid' : 'border-white-30 text-white-80 hover:border-white'}`}
             >
-              <span className="truncate font-semibold lowercase">{m.short[getLang()]}</span>
-              <span className={isOn(m) ? 'opacity-60' : 'text-white-50'}>{m.count}</span>
+              <span className="truncate lowercase">{m.short[getLang()]}</span>
+              <span className="font-medium opacity-60">{m.count}</span>
             </button>
           ))}
         </div>
