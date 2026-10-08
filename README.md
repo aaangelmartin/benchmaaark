@@ -64,7 +64,7 @@ manual values always win over fetched ones.
 - **galería**: every chart the data allows, a couple of hundred, generated per source and per metric (ranking, by effort, score vs cost, over time, table), with the curated ones first. filter by source, by kind, or search. a click opens a fresh editor on that chart.
 - **editor**: four steps. chart and source, labs (all of them, by logo), models (lists grouped by lab, sorted by release, score or name, with search), look. by default it picks the latest model of each line of each lab (opus, sonnet, haiku...); older ones are one click away. a star makes a model solid white and dims the rest. models run at several reasoning efforts can show each effort, joined by a line.
 - **mis gráficas**: whatever you edit is saved in the browser as you go.
-- **modelos**: every model with all its metrics and its rank in each.
+- **clasificación**: every model in one table, ranked by an overall score (the average of its percentile in cursorbench, artificial analysis, epoch's eci and lmarena, over the indices it has). one row per model or one per reasoning effort; filter by lab, weights, latest models and how many indices back the score; sort by any column; click a row for the model's profile.
 
 charts are interactive in the editor: hover a point or bar for its numbers, click it for the model's profile.
 

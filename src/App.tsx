@@ -13,7 +13,7 @@ import {
   resolve,
   TEMPLATES,
 } from './charts/spec.ts'
-import { DataView } from './components/DataView.tsx'
+import { Leaderboard } from './components/Leaderboard.tsx'
 import { Editor, type Step } from './components/Editor.tsx'
 import { Card, Gallery, LazyPoster } from './components/Gallery.tsx'
 import { InteractivePoster } from './components/InteractivePoster.tsx'
@@ -45,7 +45,7 @@ function fromHash(): { view: View; spec: ChartSpec | null } {
   const h = location.hash
   if (h.startsWith('#/editor/')) return { view: 'editor', spec: decodeSpec(h.slice(9)) }
   if (h === '#/mis-graficas') return { view: 'saved', spec: null }
-  if (h === '#/modelos') return { view: 'models', spec: null }
+  if (h === '#/clasificacion' || h === '#/modelos') return { view: 'models', spec: null }
   return { view: 'gallery', spec: null }
 }
 
@@ -82,7 +82,7 @@ export function App() {
         : view === 'saved'
           ? '#/mis-graficas'
           : view === 'models'
-            ? '#/modelos'
+            ? '#/clasificacion'
             : '#/'
     history.replaceState(null, '', hash)
   }, [spec, view])
@@ -334,7 +334,7 @@ export function App() {
                   'saved',
                   `${L('mis gráficas', 'my charts')}${saved.length ? ` ${saved.length}` : ''}`,
                 ],
-                ['models', L('modelos', 'models')],
+                ['models', L('clasificación', 'leaderboard')],
               ] as const
             ).map(([id, label]) => (
               <button
@@ -484,7 +484,7 @@ export function App() {
           />
         )}
 
-        {view === 'models' && <DataView data={data} onSelect={setModel} />}
+        {view === 'models' && <Leaderboard data={data} onSelect={setModel} />}
       </div>
 
       {view !== 'editor' && <Footer data={data} status={status} />}
