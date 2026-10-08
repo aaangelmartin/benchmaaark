@@ -30,7 +30,6 @@ interface Picker {
   anyEfforts: boolean
   // best: one run per model. all: every effort of every model
   setEfforts: (mode: 'best' | 'all') => void
-  clearStars: () => void
 }
 
 export function usePicker(
@@ -136,7 +135,6 @@ export function usePicker(
     ),
     setEfforts: (mode) =>
       onChange({ ...spec, effortPick: {}, options: { ...spec.options, efforts: mode } }),
-    clearStars: () => onChange({ ...spec, highlight: [], highlightLabs: [] }),
   }
 }
 
@@ -234,7 +232,6 @@ export function LinesPicker({ p }: { p: Picker }) {
   const hasPicks = Object.keys(p.spec.effortPick).length > 0
   const efforts: 'best' | 'all' | 'choose' =
     choosing || hasPicks ? 'choose' : p.spec.options.efforts
-  const starred = p.labs.flatMap((l) => p.models(l, true)).filter(p.isStar)
   const showEfforts = p.anyEfforts && p.spec.type !== 'compare' && p.spec.type !== 'table'
 
   return (
@@ -276,33 +273,6 @@ export function LinesPicker({ p }: { p: Picker }) {
           </p>
         </div>
       )}
-
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-white-50">
-        <span className="flex items-center gap-1.5">
-          <Star on />
-          {starred.length === 0
-            ? L(
-                'pulsa la estrella de un modelo para destacarlo: blanco puro, el resto se apaga.',
-                "press a model's star to highlight it: solid, the rest dims.",
-              )
-            : L('destacados:', 'highlighted:')}
-        </span>
-        {starred.map((m) => (
-          <button
-            key={m.id}
-            onClick={() => p.star(m.id)}
-            title={L('quitar destacado', 'remove highlight')}
-            className="inline-flex items-center gap-1 rounded-full bg-solid px-2 py-0.5 font-semibold text-on-solid lowercase"
-          >
-            {m.name} <span className="opacity-60">×</span>
-          </button>
-        ))}
-        {starred.length > 1 && (
-          <button onClick={p.clearStars} className="underline hover:text-white">
-            {L('quitar todos', 'clear all')}
-          </button>
-        )}
-      </div>
 
       {p.labs.map((lab) => {
         const all = p.models(lab, true)
@@ -415,7 +385,7 @@ function VersionChip({ p, m }: { p: Picker; m: Model }) {
     )
   return (
     <span
-      className={`inline-flex items-center rounded-full bg-solid text-xs font-semibold text-on-solid ${starred ? 'ring-2 ring-white ring-offset-2 ring-offset-bg' : ''}`}
+      className={`inline-flex items-center rounded-full bg-solid text-xs font-semibold text-on-solid `}
     >
       <button
         onClick={() => p.star(m.id)}
