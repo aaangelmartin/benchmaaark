@@ -421,7 +421,9 @@ export function App() {
                 onStep={setStep}
               />
             </aside>
-            <main className="p-4 md:p-8">
+            {/* the poster sits in the middle of the space next to the sidebar,
+                and stays there while the sidebar scrolls */}
+            <main className="flex items-center justify-center p-4 md:p-8 lg:sticky lg:top-14 lg:h-[calc(100dvh-3.5rem)]">
               <Preview data={data} spec={spec} onSelect={setModel} />
             </main>
           </div>
@@ -648,11 +650,16 @@ function Preview({
 }) {
   const { w, h } = FORMATS[spec.format]
   return (
-    <div className="mx-auto" style={{ maxWidth: `min(100%, calc((100dvh - 9rem) * ${w / h}))` }}>
+    // the caption hangs below without taking part in the centring, so it is the
+    // poster itself that sits in the middle
+    <div
+      className="relative w-full"
+      style={{ maxWidth: `min(100%, calc((100dvh - 12rem) * ${w / h}))` }}
+    >
       <div className="overflow-hidden rounded-xl shadow-[0_0_0_1px_rgba(255,255,255,0.2),0_30px_80px_-20px_rgba(0,0,0,0.35)]">
         <InteractivePoster data={data} spec={spec} onSelect={onSelect} />
       </div>
-      <p className="mt-3 text-center text-xs text-white-50">
+      <p className="absolute top-full right-0 left-0 mt-3 text-center text-xs text-white-50">
         {w}×{h}, {FORMATS[spec.format].hint}.{' '}
         {L(
           'pasa el ratón por un punto o una barra para ver sus datos.',
