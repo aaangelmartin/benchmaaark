@@ -12,6 +12,8 @@ export function Marker({ id, ...props }: MarkerProps & { id?: string }) {
 }
 
 interface MarkerProps {
+  // overrides the white tint, for interface icons drawn in the brand's cyan
+  color?: string
   shape: Shape
   x: number
   y: number
@@ -20,31 +22,24 @@ interface MarkerProps {
   filled?: boolean
 }
 
-function Shape({
-  shape,
-  x,
-  y,
-  r,
-  opacity = 1,
-  filled = true,
-}: {
-  shape: Shape
-  x: number
-  y: number
-  r: number
-  opacity?: number
-  filled?: boolean
-}) {
+function Shape({ shape, x, y, r, opacity = 1, filled = true, color }: MarkerProps) {
   const sw = Math.max(1.5, r * 0.35)
   const paint = filled
-    ? { fill: tint(opacity), stroke: 'none' }
-    : { fill: 'none', stroke: tint(opacity), strokeWidth: sw }
+    ? { fill: color ?? tint(opacity), stroke: 'none' }
+    : { fill: 'none', stroke: color ?? tint(opacity), strokeWidth: sw }
   switch (shape) {
     case 'circle':
       return <circle cx={x} cy={y} r={r} {...paint} />
     case 'ring':
       return (
-        <circle cx={x} cy={y} r={r * 0.85} fill="none" stroke={tint(opacity)} strokeWidth={sw} />
+        <circle
+          cx={x}
+          cy={y}
+          r={r * 0.85}
+          fill="none"
+          stroke={color ?? tint(opacity)}
+          strokeWidth={sw}
+        />
       )
     case 'square':
       return (
@@ -76,7 +71,7 @@ function Shape({
       return (
         <path
           d={`M${x - h},${y - h} L${x + h},${y + h} M${x + h},${y - h} L${x - h},${y + h}`}
-          stroke={tint(opacity)}
+          stroke={color ?? tint(opacity)}
           strokeWidth={sw * 1.4}
           strokeLinecap="round"
         />
