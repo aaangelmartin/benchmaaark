@@ -1,10 +1,10 @@
-// the chart editor, as four steps you open one at a time:
-//   1. qué gráfica   type and metrics
-//   2. laboratorios  which labs, by logo
-//   3. modelos       which models of each lab, their efforts, and highlights
-//   4. aspecto       format, language, text and style
-// everything is picked by clicking, nothing needs typing except the title.
+// the chart editor, four steps opened one at a time:
+//   1. gráfica y fuente   what kind of chart, from which source, which metric
+//   2. laboratorios       every lab, by logo
+//   3. modelos            plain lists grouped by lab: toggle, star, efforts
+//   4. aspecto            format, language, text and style
 import { type ReactNode, useMemo, useState } from 'react'
+import { SOURCE_ORDER } from '../charts/catalogue.ts'
 import { Marker } from '../charts/primitives.tsx'
 import {
   type ChartSpec,
@@ -12,46 +12,43 @@ import {
   FORMATS,
   type FormatId,
   requiredMetrics,
+  type Resolved,
   resolve,
 } from '../charts/spec.ts'
 import type { Shape } from '../charts/theme.ts'
 import { effortRank } from '../lib/effort.ts'
 import { formatValue } from '../lib/format.ts'
-import type { Dataset, MetricCategory, MetricDef, Model } from '../lib/types.ts'
+import type { Dataset, MetricDef, Model, SourceId } from '../lib/types.ts'
 import { LabLogo } from './LabLogo.tsx'
 import { Field, inputClass, Pills, Toggle } from './ui.tsx'
 
-const CATEGORIES: Array<[MetricCategory, string]> = [
-  ['intelligence', 'inteligencia'],
-  ['benchmark', 'benchmarks'],
-  ['arena', 'arena'],
-  ['cost', 'coste'],
-  ['speed', 'velocidad'],
-  ['context', 'contexto'],
-]
+const CYAN = '#00b5e2'
 
 const TYPES: Array<{ value: ChartType; label: string; hint: string }> = [
-  { value: 'scatter', label: 'dispersión', hint: 'dos métricas cruzadas' },
   { value: 'bars', label: 'ranking', hint: 'quién va primero' },
+  { value: 'scatter', label: 'dispersión', hint: 'dos métricas cruzadas' },
   { value: 'timeline', label: 'evolución', hint: 'cómo avanza en el tiempo' },
-  { value: 'compare', label: 'comparativa', hint: 'pocos modelos, muchas métricas' },
   { value: 'table', label: 'tabla', hint: 'resumen con números' },
+  { value: 'compare', label: 'comparativa', hint: 'pocos modelos, varias métricas' },
 ]
 
-type Step = 1 | 2 | 3 | 4
+export type Step = 1 | 2 | 3 | 4
 
 export function Editor({
   data,
   spec,
   onChange,
   exportPanel,
+  step,
+  onStep,
 }: {
   data: Dataset
   spec: ChartSpec
   onChange: (s: ChartSpec) => void
   exportPanel: ReactNode
+  step: Step | null
+  onStep: (s: Step | null) => void
 }) {
-  const [open, setOpen] = useState<Step | null>(3)
   const r = useMemo(() => resolve(data, spec), [data, spec])
   const metricById = useMemo(() => new Map(data.metrics.map((m) => [m.id, m])), [data])
   const labName = useMemo(() => new Map(data.labs.map((l) => [l.id, l.name])), [data])
@@ -62,11 +59,13 @@ export function Editor({
     onChange({ ...spec, options: { ...spec.options, ...patch } })
   const L = spec.locale
   const short = (id: string) => metricById.get(id)?.short.es ?? id
+  const multi = spec.type === 'compare' || spec.type === 'table'
+  const toggle = (s: Step) => onStep(step === s ? null : s)
 
   const metricSummary =
     spec.type === 'scatter'
-      ? `${short(spec.y)} frente a ${short(spec.x)}`
-      : spec.type === 'compare' || spec.type === 'table'
+      ? `${short(spec.y)} vs ${short(spec.x)}`
+      : multi
         ? spec.metrics.map(short).join(', ')
         : short(spec.y)
   const labSummary = spec.filter.labs.length
@@ -81,11 +80,11 @@ export function Editor({
 
       <StepBox
         n={1}
-        title="qué gráfica"
+        title="gráfica y fuente"
         summary={`${TYPES.find((t) => t.value === spec.type)?.label}: ${metricSummary}`}
-        open={open === 1}
-        onToggle={() => setOpen(open === 1 ? null : 1)}
-        onNext={() => setOpen(2)}
+        open={step === 1}
+        onToggle={() => toggle(1)}
+        onNext={() => onStep(2)}
       >
         <div className="grid grid-cols-2 gap-2">
           {TYPES.map((t) => (
@@ -113,9 +112,9 @@ export function Editor({
         n={2}
         title="laboratorios"
         summary={labSummary}
-        open={open === 2}
-        onToggle={() => setOpen(open === 2 ? null : 2)}
-        onNext={() => setOpen(3)}
+        open={step === 2}
+        onToggle={() => toggle(2)}
+        onNext={() => onStep(3)}
       >
         <LabsStep data={data} spec={spec} r={r} onChange={(labs) => setF({ labs })} />
       </StepBox>
@@ -124,9 +123,9 @@ export function Editor({
         n={3}
         title="modelos"
         summary={`${r.shown.size} en la gráfica${spec.highlight.length ? `, ${spec.highlight.length} destacados` : ''}`}
-        open={open === 3}
-        onToggle={() => setOpen(open === 3 ? null : 3)}
-        onNext={() => setOpen(4)}
+        open={step === 3}
+        onToggle={() => toggle(3)}
+        onNext={() => onStep(4)}
       >
         <ModelsStep data={data} spec={spec} r={r} onChange={onChange} setF={setF} setO={setO} />
       </StepBox>
@@ -134,11 +133,11 @@ export function Editor({
       <StepBox
         n={4}
         title="aspecto"
-        summary={`${FORMATS[spec.format].label}, ${spec.locale}`}
-        open={open === 4}
-        onToggle={() => setOpen(open === 4 ? null : 4)}
+        summary={`${FORMATS[spec.format].label}, ${spec.locale === 'es' ? 'español' : 'english'}`}
+        open={step === 4}
+        onToggle={() => toggle(4)}
       >
-        <Field label="formato">
+        <Group title="formato">
           <div className="grid grid-cols-5 gap-2">
             {(Object.keys(FORMATS) as FormatId[]).map((f) => {
               const { w, h, label, hint } = FORMATS[f]
@@ -168,38 +167,45 @@ export function Editor({
               )
             })}
           </div>
-          <p className="mt-1 text-xs text-white-50">{FORMATS[spec.format].hint}</p>
-        </Field>
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-white-80">idioma</span>
-          <Pills
-            value={spec.locale}
-            options={[
-              { value: 'es', label: 'español' },
-              { value: 'en', label: 'english' },
-            ]}
-            onChange={(v) => set({ locale: v })}
-          />
-        </div>
-        <Field label="título">
-          <input
-            className={inputClass}
-            value={spec.title?.[L] ?? ''}
-            placeholder="automático"
-            onChange={(e) => setText(spec, onChange, 'title', e.target.value)}
-          />
-        </Field>
-        <Field label="subtítulo">
-          <textarea
-            className={`${inputClass} min-h-16 resize-y`}
-            value={spec.subtitle?.[L] ?? ''}
-            placeholder="opcional"
-            onChange={(e) => setText(spec, onChange, 'subtitle', e.target.value)}
-          />
-        </Field>
+          <p className="text-xs text-white-50">{FORMATS[spec.format].hint}</p>
+          <Row label="idioma">
+            <Pills
+              value={spec.locale}
+              options={[
+                { value: 'es', label: 'español' },
+                { value: 'en', label: 'english' },
+              ]}
+              onChange={(v) => set({ locale: v })}
+            />
+          </Row>
+        </Group>
 
-        {(spec.type === 'scatter' || spec.type === 'timeline') && (
-          <>
+        <Group title="texto">
+          <Field label="título">
+            <input
+              className={inputClass}
+              value={spec.title?.[L] ?? ''}
+              placeholder="automático"
+              onChange={(e) => setText(spec, onChange, 'title', e.target.value)}
+            />
+          </Field>
+          <Field label="subtítulo">
+            <textarea
+              className={`${inputClass} min-h-16 resize-y`}
+              value={spec.subtitle?.[L] ?? ''}
+              placeholder="opcional"
+              onChange={(e) => setText(spec, onChange, 'subtitle', e.target.value)}
+            />
+          </Field>
+          <Toggle
+            label="todo en minúsculas"
+            checked={spec.options.lowercase}
+            onChange={(v) => setO({ lowercase: v })}
+          />
+        </Group>
+
+        <Group title="estilo">
+          {(spec.type === 'scatter' || spec.type === 'timeline') && (
             <Field label="forma de los puntos">
               <Pills
                 value={spec.options.series}
@@ -211,6 +217,21 @@ export function Editor({
                 onChange={(v) => setO({ series: v })}
               />
             </Field>
+          )}
+          {!multi && (
+            <Field label="opacidad">
+              <Pills
+                value={spec.options.color}
+                options={[
+                  { value: 'model', label: 'una por modelo' },
+                  { value: 'lab', label: 'una por laboratorio' },
+                  { value: 'none', label: 'sin variar' },
+                ]}
+                onChange={(v) => setO({ color: v })}
+              />
+            </Field>
+          )}
+          {(spec.type === 'scatter' || spec.type === 'timeline') && (
             <Field label="etiquetas">
               <Pills
                 value={spec.options.labels}
@@ -223,64 +244,48 @@ export function Editor({
                 onChange={(v) => setO({ labels: v })}
               />
             </Field>
+          )}
+          {spec.type === 'bars' && (
+            <Field label="orden">
+              <Pills
+                value={spec.options.sort}
+                options={[
+                  { value: 'best', label: 'mejor arriba' },
+                  { value: 'worst', label: 'peor arriba' },
+                ]}
+                onChange={(v) => setO({ sort: v })}
+              />
+            </Field>
+          )}
+          {(spec.type === 'scatter' || spec.type === 'timeline') && (
             <Toggle
               label={spec.type === 'scatter' ? 'línea de frontera de pareto' : 'línea de récords'}
               checked={spec.options.frontier}
               onChange={(v) => setO({ frontier: v })}
             />
-          </>
-        )}
-        {spec.type !== 'compare' && spec.type !== 'table' && (
-          <Field label="opacidad">
-            <Pills
-              value={spec.options.color}
-              options={[
-                { value: 'model', label: 'una por modelo' },
-                { value: 'lab', label: 'una por laboratorio' },
-                { value: 'none', label: 'sin variar' },
-              ]}
-              onChange={(v) => setO({ color: v })}
+          )}
+          {spec.type === 'scatter' && (
+            <Toggle
+              label="eje horizontal logarítmico"
+              checked={spec.options.logX}
+              onChange={(v) => setO({ logX: v })}
             />
-          </Field>
-        )}
-        {spec.type === 'scatter' && (
-          <Toggle
-            label="eje x en escala logarítmica"
-            checked={spec.options.logX}
-            onChange={(v) => setO({ logX: v })}
-          />
-        )}
-        {(spec.type === 'scatter' || spec.type === 'timeline') && (
-          <Toggle
-            label="eje y en escala logarítmica"
-            checked={spec.options.logY}
-            onChange={(v) => setO({ logY: v })}
-          />
-        )}
-        {spec.type === 'bars' && (
-          <Field label="orden">
-            <Pills
-              value={spec.options.sort}
-              options={[
-                { value: 'best', label: 'mejor arriba' },
-                { value: 'worst', label: 'peor arriba' },
-              ]}
-              onChange={(v) => setO({ sort: v })}
+          )}
+          {(spec.type === 'scatter' || spec.type === 'timeline') && (
+            <Toggle
+              label="eje vertical logarítmico"
+              checked={spec.options.logY}
+              onChange={(v) => setO({ logY: v })}
             />
-          </Field>
-        )}
-        {(spec.type === 'bars' || spec.type === 'table') && (
-          <Toggle
-            label="nombre del laboratorio bajo cada modelo"
-            checked={spec.options.showLab}
-            onChange={(v) => setO({ showLab: v })}
-          />
-        )}
-        <Toggle
-          label="todo en minúsculas (marca)"
-          checked={spec.options.lowercase}
-          onChange={(v) => setO({ lowercase: v })}
-        />
+          )}
+          {(spec.type === 'bars' || spec.type === 'table') && (
+            <Toggle
+              label="laboratorio bajo cada modelo"
+              checked={spec.options.showLab}
+              onChange={(v) => setO({ showLab: v })}
+            />
+          )}
+        </Group>
       </StepBox>
     </div>
   )
@@ -295,6 +300,24 @@ function setText(
   const cur = spec[k] ?? { es: '', en: '' }
   const next = { ...cur, [spec.locale]: v }
   onChange({ ...spec, [k]: next.es || next.en ? next : null })
+}
+
+function Group({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="space-y-3 border-t border-white-20 pt-4 first:border-t-0 first:pt-0">
+      <h4 className="text-xs font-semibold tracking-widest text-white-50">{title}</h4>
+      {children}
+    </div>
+  )
+}
+
+function Row({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-sm text-white-80">{label}</span>
+      {children}
+    </div>
+  )
 }
 
 function StepBox({
@@ -361,7 +384,7 @@ function StepBox({
   )
 }
 
-// ---- 1. metrics -------------------------------------------------------------
+// ---- 1. source and metric ----------------------------------------------------
 
 function MetricChooser({
   data,
@@ -374,19 +397,17 @@ function MetricChooser({
 }) {
   const multi = spec.type === 'compare' || spec.type === 'table'
   const [slot, setSlot] = useState<'y' | 'x'>('y')
-  const active = multi ? null : spec.type === 'scatter' ? spec[slot] : spec.y
-  const firstCat =
-    data.metrics.find((m) => m.id === (active ?? spec.metrics[0]))?.category ?? 'intelligence'
-  const [cat, setCat] = useState<MetricCategory>(firstCat)
+  const byId = useMemo(() => new Map(data.metrics.map((m) => [m.id, m])), [data])
+  const active = multi ? spec.metrics[0] : spec.type === 'scatter' ? spec[slot] : spec.y
+  const [source, setSource] = useState<SourceId>(byId.get(active)?.source ?? 'cursor')
   const [more, setMore] = useState(false)
-  // list prices per token say nothing about what a run costs, so they are never
-  // offered: cost is always the cost per task of a benchmark
-  const usable = data.metrics.filter((m) => m.unit !== 'usd_per_mtok')
-  const list = usable
-    .filter((m) => m.category === cat)
+  const sources = SOURCE_ORDER.filter((s) => data.metrics.some((m) => m.source === s))
+  const sourceName = (id: SourceId) =>
+    data.sources.find((s) => s.id === id)?.name.toLowerCase() ?? id
+  const list = data.metrics
+    .filter((m) => m.source === source)
     .sort((a, b) => (b.count ?? 0) - (a.count ?? 0))
   const shown = more ? list : list.slice(0, 12)
-  const byId = new Map(data.metrics.map((m) => [m.id, m]))
 
   const pick = (m: MetricDef) => {
     if (multi) {
@@ -394,22 +415,26 @@ function MetricChooser({
       onChange({
         ...spec,
         metrics: has ? spec.metrics.filter((x) => x !== m.id) : [...spec.metrics, m.id],
+        title: null,
+        subtitle: null,
       })
     } else if (spec.type === 'scatter') {
       // a benchmark with a cost per task brings its cost to the other axis
       const cost = slot === 'y' ? byId.get(`${m.id}-cost`) : undefined
-      if (cost) {
-        onChange({
+      if (cost)
+        return onChange({
           ...spec,
           y: m.id,
           x: cost.id,
+          title: null,
+          subtitle: null,
           options: { ...spec.options, logX: true, logY: false },
         })
-        return
-      }
       onChange({
         ...spec,
         [slot]: m.id,
+        title: null,
+        subtitle: null,
         options: { ...spec.options, ...(slot === 'x' ? { logX: !!m.log } : { logY: false }) },
       })
       if (slot === 'y') setSlot('x')
@@ -417,6 +442,8 @@ function MetricChooser({
       onChange({
         ...spec,
         y: m.id,
+        title: null,
+        subtitle: null,
         options: { ...spec.options, logY: spec.type === 'timeline' && !!m.log },
       })
   }
@@ -429,7 +456,11 @@ function MetricChooser({
           {(['y', 'x'] as const).map((k) => (
             <button
               key={k}
-              onClick={() => setSlot(k)}
+              onClick={() => {
+                setSlot(k)
+                const src = byId.get(spec[k])?.source
+                if (src) setSource(src)
+              }}
               className={`rounded-xl border p-2.5 text-left ${slot === k ? 'border-white' : 'border-white-20'}`}
             >
               <span className="block text-[0.65rem] tracking-widest text-white-50">
@@ -444,45 +475,56 @@ function MetricChooser({
       )}
       {multi && (
         <p className="text-xs text-white-50">
-          marca las métricas en el orden en que quieres verlas. elegidas:{' '}
+          columnas, en el orden en que las marcas:{' '}
           <span className="text-white-80 lowercase">
             {spec.metrics.map((id) => byId.get(id)?.short.es ?? id).join(', ') || 'ninguna'}
           </span>
         </p>
       )}
-      <div className="flex flex-wrap gap-1.5">
-        {CATEGORIES.filter(([c]) => usable.some((m) => m.category === c)).map(([c, label]) => (
-          <button
-            key={c}
-            onClick={() => {
-              setCat(c)
-              setMore(false)
-            }}
-            className={`rounded-full px-3 py-1 text-xs font-semibold ${cat === c ? 'bg-white text-bg' : 'text-white-50 hover:text-white'}`}
-          >
-            {label}
-          </button>
-        ))}
+
+      <div>
+        <p className="mb-1.5 text-xs tracking-widest text-white-50">fuente</p>
+        <div className="flex flex-wrap gap-1.5">
+          {sources.map((s) => (
+            <button
+              key={s}
+              onClick={() => {
+                setSource(s)
+                setMore(false)
+              }}
+              className={`rounded-full px-3 py-1 text-xs font-semibold ${source === s ? 'bg-white text-bg' : 'border border-white-30 text-white-80 hover:border-white'}`}
+            >
+              {sourceName(s)}
+            </button>
+          ))}
+        </div>
       </div>
-      <div className="grid grid-cols-2 gap-1.5">
-        {shown.map((m) => (
+
+      <div>
+        <p className="mb-1.5 text-xs tracking-widest text-white-50">métrica</p>
+        <div className="grid grid-cols-2 gap-1.5">
+          {shown.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => pick(m)}
+              title={m.label.es + (m.description ? `. ${m.description.es}` : '')}
+              className={`flex items-baseline justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors ${isOn(m) ? 'border-white bg-white text-bg' : 'border-white-20 hover:border-white-50'}`}
+            >
+              <span className="truncate font-semibold lowercase">{m.short.es}</span>
+              <span className={isOn(m) ? 'opacity-60' : 'text-white-50'}>{m.count}</span>
+            </button>
+          ))}
+        </div>
+        {list.length > 12 && (
           <button
-            key={m.id}
-            onClick={() => pick(m)}
-            title={m.label.es + (m.description ? `. ${m.description.es}` : '')}
-            className={`flex items-baseline justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors ${isOn(m) ? 'border-white bg-white text-bg' : 'border-white-20 hover:border-white-50'}`}
+            onClick={() => setMore(!more)}
+            className="mt-2 text-xs text-white-50 hover:text-white"
           >
-            <span className="truncate font-semibold lowercase">{m.short.es}</span>
-            <span className={isOn(m) ? 'opacity-60' : 'text-white-50'}>{m.count}</span>
+            {more ? 'ver menos' : `ver las ${list.length} métricas de ${sourceName(source)}`}
           </button>
-        ))}
+        )}
+        <p className="mt-2 text-xs text-white-50">el número es cuántos modelos tienen ese dato.</p>
       </div>
-      {list.length > 12 && (
-        <button onClick={() => setMore(!more)} className="text-xs text-white-50 hover:text-white">
-          {more ? 'ver menos' : `ver las ${list.length} de esta categoría`}
-        </button>
-      )}
-      <p className="text-xs text-white-50">el número es cuántos modelos tienen ese dato.</p>
     </div>
   )
 }
@@ -497,84 +539,114 @@ function LabsStep({
 }: {
   data: Dataset
   spec: ChartSpec
-  r: ReturnType<typeof resolve>
+  r: Resolved
   onChange: (labs: string[]) => void
 }) {
-  const [all, setAll] = useState(false)
+  const [q, setQ] = useState('')
   const counts = new Map<string, number>()
   for (const m of r.candidates) counts.set(m.lab, (counts.get(m.lab) ?? 0) + 1)
   const labs = data.labs
-    .filter((l) => l.id !== 'other' && (counts.get(l.id) ?? 0) > 0)
-    .sort((a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0))
-  const shown = all ? labs : labs.slice(0, 15)
+    .filter((l) => l.id !== 'other' && (!q || l.name.toLowerCase().includes(q.toLowerCase())))
+    .sort(
+      (a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0) || a.name.localeCompare(b.name),
+    )
   const sel = spec.filter.labs
   const toggle = (id: string) =>
     onChange(sel.includes(id) ? sel.filter((l) => l !== id) : [...sel, id])
+  const preset = (ids: string[]) => onChange(ids.filter((l) => counts.has(l)))
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         <Pill on={sel.length === 0} onClick={() => onChange([])}>
           todos
         </Pill>
-        <Pill
-          on={false}
-          onClick={() =>
-            onChange(
-              ['openai', 'anthropic', 'google', 'xai', 'deepseek'].filter((l) => counts.has(l)),
-            )
-          }
-        >
-          los 5 grandes
+        <Pill on={false} onClick={() => preset(['openai', 'anthropic', 'google', 'xai', 'meta'])}>
+          grandes
         </Pill>
         <Pill
           on={false}
           onClick={() =>
-            onChange(
-              ['deepseek', 'alibaba', 'moonshot', 'zai', 'minimax'].filter((l) => counts.has(l)),
-            )
+            preset([
+              'deepseek',
+              'alibaba',
+              'moonshot',
+              'zai',
+              'minimax',
+              'bytedance',
+              'tencent',
+              'baidu',
+              'xiaomi',
+              'stepfun',
+            ])
           }
         >
           china
         </Pill>
+        <Pill
+          on={false}
+          onClick={() =>
+            preset([
+              'meta',
+              'deepseek',
+              'alibaba',
+              'mistral',
+              'google',
+              'microsoft',
+              'nvidia',
+              'zai',
+              'moonshot',
+            ])
+          }
+        >
+          abiertos
+        </Pill>
       </div>
-      <div className="grid grid-cols-3 gap-2">
-        {shown.map((l) => {
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder={`buscar entre ${data.labs.length - 1} laboratorios`}
+        className={inputClass}
+      />
+      <div className="scrollbar-thin grid max-h-[26rem] grid-cols-3 gap-2 overflow-y-auto pr-1">
+        {labs.map((l) => {
           const on = sel.includes(l.id)
+          const n = counts.get(l.id) ?? 0
           return (
             <button
               key={l.id}
               onClick={() => toggle(l.id)}
-              className={`relative flex flex-col items-center gap-1.5 rounded-xl border px-1 py-3 transition-colors ${on ? 'border-white bg-white text-bg' : 'border-white-20 hover:border-white-50'}`}
+              className={`relative flex flex-col items-center gap-1.5 rounded-xl border px-1 py-3 transition-colors ${on ? 'border-white bg-white text-bg' : n ? 'border-white-20 hover:border-white-50' : 'border-white-10 opacity-45 hover:opacity-80'}`}
             >
-              {on && spec.options.series === 'lab' && (
-                <span className="absolute top-1.5 right-1.5">
-                  <ShapeIcon shape={r.shapeOf(l.id)} dark />
-                </span>
-              )}
+              {on &&
+                spec.options.series === 'lab' &&
+                (spec.type === 'scatter' || spec.type === 'timeline') && (
+                  <span className="absolute top-1.5 right-1.5" title="su forma en la gráfica">
+                    <ShapeIcon shape={r.shapeOf(l.id)} color={CYAN} />
+                  </span>
+                )}
               <LabLogo lab={l.id} name={l.name} className="h-6 w-6" />
               <span className="w-full truncate text-center text-xs font-semibold lowercase">
                 {l.name}
               </span>
               <span className={`text-[0.65rem] ${on ? 'opacity-60' : 'text-white-50'}`}>
-                {counts.get(l.id)} modelos
+                {n ? `${n} modelos` : 'sin datos'}
               </span>
             </button>
           )
         })}
       </div>
-      {labs.length > 15 && (
-        <button onClick={() => setAll(!all)} className="text-xs text-white-50 hover:text-white">
-          {all ? 'ver menos' : `ver los ${labs.length} laboratorios`}
-        </button>
-      )}
       <p className="text-xs text-white-50">
-        sin ninguno marcado entran todos. en la gráfica, cada laboratorio tiene su forma.
+        sin ninguno marcado entran todos. "sin datos" significa que ese laboratorio no tiene la
+        métrica elegida.
       </p>
     </div>
   )
 }
 
 // ---- 3. models --------------------------------------------------------------
+
+type View = 'rec' | 'all' | 'on'
+type Sort = 'release' | 'score' | 'name'
 
 function ModelsStep({
   data,
@@ -586,21 +658,20 @@ function ModelsStep({
 }: {
   data: Dataset
   spec: ChartSpec
-  r: ReturnType<typeof resolve>
+  r: Resolved
   onChange: (s: ChartSpec) => void
   setF: (p: Partial<ChartSpec['filter']>) => void
   setO: (p: Partial<ChartSpec['options']>) => void
 }) {
+  const [view, setView] = useState<View>('rec')
+  const [sort, setSort] = useState<Sort>('release')
+  const [q, setQ] = useState('')
   const labName = new Map(data.labs.map((l) => [l.id, l.name]))
   const req = requiredMetrics(spec)
-  const rankId =
-    spec.filter.rankBy ??
-    (spec.type === 'compare' || spec.type === 'table' ? spec.metrics[0] : spec.y)
+  const multi = spec.type === 'compare' || spec.type === 'table'
+  const rankId = spec.filter.rankBy ?? (multi ? spec.metrics[0] : spec.y)
   const rankDef = data.metrics.find((m) => m.id === rankId)
-  const candidateIds = new Set(r.candidates.map((m) => m.id))
-
-  // labs to list: the picked ones, else the ones on the chart
-  const labs = spec.filter.labs.length ? spec.filter.labs : r.labsShown
+  const candidateIds = useMemo(() => new Set(r.candidates.map((m) => m.id)), [r])
   const variants = useMemo(() => {
     const out = new Map<string, Model[]>()
     for (const m of data.models)
@@ -608,6 +679,10 @@ function ModelsStep({
     return out
   }, [data])
   const hasData = (m: Model) => req.every((id) => m.values[id] !== undefined)
+  const anyEfforts = useMemo(
+    () => data.models.some((m) => m.family && hasData(m)),
+    [data, spec.x, spec.y, spec.type],
+  ) // eslint-disable-line react-hooks/exhaustive-deps
 
   const f = spec.filter
   const toggle = (id: string) => {
@@ -617,8 +692,7 @@ function ModelsStep({
       exclude: on ? [...f.exclude.filter((x) => x !== id), id] : f.exclude.filter((x) => x !== id),
     })
   }
-  const setLab = (lab: string, on: boolean) => {
-    const ids = r.candidates.filter((m) => m.lab === lab).map((m) => m.id)
+  const setMany = (ids: string[], on: boolean) =>
     setF({
       include: on
         ? [...new Set([...f.include, ...ids])]
@@ -627,7 +701,6 @@ function ModelsStep({
         ? f.exclude.filter((x) => !ids.includes(x))
         : [...new Set([...f.exclude, ...ids])],
     })
-  }
   const star = (id: string) =>
     onChange({
       ...spec,
@@ -643,129 +716,184 @@ function ModelsStep({
     else delete effortPick[id]
     onChange({ ...spec, effortPick })
   }
-  const anyEfforts = data.models.some((m) => m.family && hasData(m))
+
+  const score = (m: Model) =>
+    rankDef && m.values[rankDef.id] !== undefined
+      ? rankDef.higherIsBetter
+        ? -m.values[rankDef.id]
+        : m.values[rankDef.id]
+      : Infinity
+  const order = (a: Model, b: Model) =>
+    sort === 'release'
+      ? (b.releaseDate ?? '').localeCompare(a.releaseDate ?? '') || score(a) - score(b)
+      : sort === 'score'
+        ? score(a) - score(b)
+        : a.name.localeCompare(b.name)
+
+  const needle = q.trim().toLowerCase()
+  const inView = (m: Model) =>
+    view === 'on'
+      ? r.shown.has(m.id)
+      : view === 'rec'
+        ? r.recommended.has(m.id) || r.shown.has(m.id)
+        : true
+  const groups = useMemo(() => {
+    const byLab = new Map<string, Model[]>()
+    for (const m of r.candidates) {
+      if (!inView(m)) continue
+      const lab = labName.get(m.lab) ?? m.lab
+      if (needle && !`${m.name} ${lab}`.toLowerCase().includes(needle)) continue
+      ;(byLab.get(m.lab) ?? byLab.set(m.lab, []).get(m.lab)!).push(m)
+    }
+    const picked = spec.filter.labs
+    return [...byLab.entries()]
+      .filter(([lab]) => !picked.length || picked.includes(lab) || needle)
+      .map(([lab, models]) => ({
+        lab,
+        models: models.sort(order),
+        on: models.filter((m) => r.shown.has(m.id)).length,
+      }))
+      .sort((a, b) => {
+        const ia = picked.indexOf(a.lab)
+        const ib = picked.indexOf(b.lab)
+        if (ia >= 0 || ib >= 0) return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib)
+        return b.on - a.on || b.models.length - a.models.length
+      })
+  }, [r, view, sort, needle, spec.filter.labs]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const missing = req.map((id) => data.metrics.find((d) => d.id === id)?.short.es ?? id).join(' y ')
   const touched = f.include.length + f.exclude.length
-  const maxTop = spec.type === 'scatter' || spec.type === 'timeline' ? 120 : 30
 
   return (
-    <div className="space-y-5">
-      <div className="space-y-3 rounded-xl border border-white-20 p-3">
-        <p className="text-xs text-white-80">
-          <span className="font-semibold text-white">selección automática:</span> los {f.top}{' '}
-          mejores
-          {rankDef ? ` en ${rankDef.short.es.toLowerCase()}` : ''}
-          {f.sinceMonths ? ` de los últimos ${f.sinceMonths} meses` : ''}. después enciende o apaga
-          los que quieras abajo.
-        </p>
-        <input
-          type="range"
-          min={2}
-          max={maxTop}
-          value={Math.min(f.top, maxTop)}
-          onChange={(e) => setF({ top: Number(e.target.value) })}
-          className="w-full"
-        />
-        <Pills
-          value={f.sinceMonths ?? 0}
-          options={[
-            { value: 6, label: '6 meses' },
-            { value: 12, label: '1 año' },
-            { value: 24, label: '2 años' },
-            { value: 0, label: 'siempre' },
-          ]}
-          onChange={(v) => setF({ sinceMonths: v || null })}
-        />
-        <Pills
-          value={f.weights}
-          options={[
-            { value: 'all', label: 'abiertos y cerrados' },
-            { value: 'open', label: 'solo abiertos' },
-            { value: 'closed', label: 'solo cerrados' },
-          ]}
-          onChange={(v) => setF({ weights: v })}
-        />
-        {(spec.type === 'scatter' || spec.type === 'bars' || spec.type === 'timeline') &&
-          (anyEfforts ? (
-            <Toggle
-              label="todos los esfuerzos de cada modelo, unidos"
-              checked={spec.options.efforts === 'all'}
-              onChange={(v) => setO({ efforts: v ? 'all' : 'best' })}
-            />
-          ) : (
-            <p className="text-xs text-white-50">
-              estas métricas no distinguen niveles de esfuerzo (el eci, por ejemplo, se calcula una
-              vez por modelo). para ver esfuerzos usa el índice de artificial analysis o un
-              benchmark de epoch.
-            </p>
-          ))}
-        {spec.type === 'scatter' &&
-          spec.options.efforts === 'all' &&
-          data.metrics.find((m) => m.id === spec.x)?.unit === 'usd_per_mtok' && (
-            <p className="rounded-lg border border-white-30 p-2 text-xs text-white-80">
-              ojo: el precio por token es el mismo en todos los esfuerzos, así que salen en
-              vertical. para ver cuánto cuesta pensar más, pon en el eje horizontal un coste por
-              tarea (coste cursorbench, coste arc-agi-2...).
-            </p>
-          )}
-        {touched > 0 && (
-          <button
-            className="text-xs text-white-50 underline hover:text-white"
-            onClick={() => setF({ include: [], exclude: [] })}
-          >
-            deshacer mis {touched} cambios a mano
-          </button>
-        )}
+    <div className="space-y-4">
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="buscar modelo o laboratorio"
+        className={inputClass}
+      />
+      <div className="space-y-2">
+        <Row label="ver">
+          <Pills
+            value={view}
+            options={[
+              {
+                value: 'rec',
+                label: 'últimos',
+                hint: 'el modelo más reciente de cada línea de cada laboratorio',
+              },
+              { value: 'all', label: 'todos' },
+              { value: 'on', label: `marcados ${r.shown.size}` },
+            ]}
+            onChange={setView}
+          />
+        </Row>
+        <Row label="orden">
+          <Pills
+            value={sort}
+            options={[
+              { value: 'release', label: 'lanzamiento' },
+              { value: 'score', label: rankDef ? rankDef.short.es.toLowerCase() : 'puntuación' },
+              { value: 'name', label: 'nombre' },
+            ]}
+            onChange={setSort}
+          />
+        </Row>
       </div>
 
-      <p className="flex items-center gap-2 text-xs text-white-50">
-        <StarIcon on /> destaca un modelo: se ve en blanco puro y el resto se apaga.
+      {(spec.type === 'scatter' || spec.type === 'bars' || spec.type === 'timeline') &&
+        anyEfforts && (
+          <Toggle
+            label="todos los niveles de esfuerzo, unidos"
+            checked={spec.options.efforts === 'all'}
+            onChange={(v) => setO({ efforts: v ? 'all' : 'best' })}
+          />
+        )}
+      {spec.type === 'scatter' &&
+        spec.options.efforts === 'all' &&
+        data.metrics.find((m) => m.id === spec.x)?.unit === 'usd_per_mtok' && (
+          <p className="rounded-lg border border-white-30 p-2 text-xs text-white-80">
+            el precio por token es igual en todos los esfuerzos, así que saldrán en vertical. para
+            ver cuánto cuesta cada esfuerzo usa un coste por tarea en el eje horizontal.
+          </p>
+        )}
+
+      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-white-50">
+        <span className="flex items-center gap-1.5">
+          <StarIcon on /> destaca: blanco puro, el resto se apaga.
+        </span>
+        {touched > 0 && (
+          <button
+            className="underline hover:text-white"
+            onClick={() => setF({ include: [], exclude: [] })}
+          >
+            volver a la selección inicial
+          </button>
+        )}
       </p>
 
-      {labs.length === 0 && (
-        <p className="text-sm text-white-50">no hay modelos con datos para esta gráfica.</p>
+      {groups.length === 0 && (
+        <p className="py-4 text-sm text-white-50">
+          {needle
+            ? 'nada coincide con la búsqueda.'
+            : `ningún modelo tiene ${missing || 'esos datos'}.`}
+        </p>
       )}
-      {labs.map((lab) => (
-        <LabGroup
-          key={lab}
-          lab={lab}
-          name={labName.get(lab) ?? lab}
-          shape={
-            spec.options.series === 'lab' && (spec.type === 'scatter' || spec.type === 'timeline')
-              ? r.shapeOf(lab)
-              : null
-          }
-          models={data.models.filter((m) => !m.family && m.lab === lab)}
-          isCandidate={(m) => candidateIds.has(m.id)}
-          isShown={(m) => r.shown.has(m.id)}
-          isStarred={(m) => spec.highlight.includes(m.id)}
-          value={(m) =>
-            rankDef && m.values[rankDef.id] !== undefined
-              ? formatValue(m.values[rankDef.id], rankDef.unit)
-              : null
-          }
-          rank={(m) =>
-            rankDef && m.values[rankDef.id] !== undefined
-              ? rankDef.higherIsBetter
-                ? -m.values[rankDef.id]
-                : m.values[rankDef.id]
-              : Infinity
-          }
-          missing={req
-            .map((id) => data.metrics.find((d) => d.id === id)?.short.es ?? id)
-            .join(' y ')}
-          efforts={(m) =>
-            (variants.get(m.id) ?? [])
-              .filter(hasData)
-              .sort((a, b) => effortRank(a.effort) - effortRank(b.effort))
-          }
-          picked={(m) => spec.effortPick[m.id] ?? []}
-          onToggle={toggle}
-          onStar={star}
-          onEffort={pickEffort}
-          onAll={(on) => setLab(lab, on)}
-          tone={spec.options.color === 'model' ? (m) => r.tone(m) : null}
-        />
-      ))}
+
+      <div className="space-y-5">
+        {groups.map((g) => (
+          <LabGroup
+            key={g.lab}
+            lab={g.lab}
+            name={labName.get(g.lab) ?? g.lab}
+            shape={
+              spec.options.series === 'lab' &&
+              (spec.type === 'scatter' || spec.type === 'timeline') &&
+              g.on > 0
+                ? r.shapeOf(g.lab)
+                : null
+            }
+            models={g.models}
+            on={g.on}
+            // labs with nothing on the chart start folded, so the list stays short
+            startOpen={
+              g.on > 0 || !!needle || spec.filter.labs.includes(g.lab) || groups.length <= 4
+            }
+            isShown={(m) => r.shown.has(m.id)}
+            isStarred={(m) => spec.highlight.includes(m.id)}
+            value={(m) =>
+              rankDef && m.values[rankDef.id] !== undefined
+                ? formatValue(m.values[rankDef.id], rankDef.unit)
+                : null
+            }
+            efforts={(m) =>
+              (variants.get(m.id) ?? [])
+                .filter(hasData)
+                .sort((a, b) => effortRank(a.effort) - effortRank(b.effort))
+            }
+            picked={(m) => spec.effortPick[m.id] ?? []}
+            tone={spec.options.color === 'model' ? (m) => r.tone(m) : null}
+            onToggle={toggle}
+            onStar={star}
+            onEffort={pickEffort}
+            onAll={(on) =>
+              setMany(
+                g.models.map((m) => m.id),
+                on,
+              )
+            }
+          />
+        ))}
+      </div>
+
+      {view !== 'all' && (
+        <button
+          onClick={() => setView('all')}
+          className="text-xs text-white-50 underline hover:text-white"
+        >
+          ver también los modelos anteriores ({candidateIds.size} con datos)
+        </button>
+      )}
     </div>
   )
 }
@@ -775,158 +903,145 @@ function LabGroup(p: {
   name: string
   shape: Shape | null
   models: Model[]
-  isCandidate: (m: Model) => boolean
+  on: number
+  startOpen: boolean
   isShown: (m: Model) => boolean
   isStarred: (m: Model) => boolean
   value: (m: Model) => string | null
-  rank: (m: Model) => number
-  missing: string
   efforts: (m: Model) => Model[]
   picked: (m: Model) => string[]
+  tone: ((m: Model) => number) | null
   onToggle: (id: string) => void
   onStar: (id: string) => void
   onEffort: (id: string, e: string) => void
   onAll: (on: boolean) => void
-  tone: ((m: Model) => number) | null
 }) {
-  const [more, setMore] = useState(false)
-  const [noData, setNoData] = useState(false)
+  const [open, setOpen] = useState<boolean | null>(null)
   const [openEfforts, setOpenEfforts] = useState<string[]>([])
-  const withData = p.models.filter(p.isCandidate).sort((a, b) => p.rank(a) - p.rank(b))
-  const recent = new Date()
-  recent.setUTCMonth(recent.getUTCMonth() - 18)
-  const without = p.models
-    .filter((m) => !p.isCandidate(m) && (m.releaseDate ?? '') >= recent.toISOString().slice(0, 10))
-    .sort((a, b) => (b.releaseDate ?? '').localeCompare(a.releaseDate ?? ''))
-  // shown models first, so what is on the chart is never hidden behind "ver más"
-  const ordered = [...withData.filter(p.isShown), ...withData.filter((m) => !p.isShown(m))]
-  const list = more ? ordered : ordered.slice(0, Math.max(10, withData.filter(p.isShown).length))
-  const shownCount = withData.filter(p.isShown).length
+  const isOpen = open ?? p.startOpen
 
   return (
-    <div className="space-y-2">
+    <div>
       <div className="flex items-center gap-2">
-        <LabLogo lab={p.lab} name={p.name} className="h-5 w-5" />
-        <span className="font-semibold lowercase">{p.name}</span>
-        {p.shape && <ShapeIcon shape={p.shape} />}
-        <span className="text-xs text-white-50">
-          {shownCount}/{withData.length}
-        </span>
-        <span className="ml-auto flex gap-3 text-xs text-white-50">
-          <button className="hover:text-white" onClick={() => p.onAll(true)}>
-            todos
-          </button>
-          <button className="hover:text-white" onClick={() => p.onAll(false)}>
-            ninguno
-          </button>
-        </span>
-      </div>
-      <div className="space-y-1">
-        {list.map((m) => {
-          const on = p.isShown(m)
-          const starred = p.isStarred(m)
-          const effs = on ? p.efforts(m) : []
-          const val = p.value(m)
-          return (
-            <div key={m.id}>
-              <div
-                className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 transition-colors ${on ? 'border-white-50' : 'border-transparent opacity-50 hover:opacity-80'}`}
-              >
-                <button
-                  onClick={() => p.onToggle(m.id)}
-                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                >
-                  <span
-                    className={`grid h-4 w-4 shrink-0 place-items-center rounded-full border ${on ? 'border-white bg-white' : 'border-white-50'}`}
-                  >
-                    {on && <span className="h-1.5 w-1.5 rounded-full bg-bg" />}
-                  </span>
-                  {on && p.tone && (
-                    <span
-                      className="h-2.5 w-2.5 shrink-0 rounded-full bg-white"
-                      style={{ opacity: p.tone(m) }}
-                      title="opacidad en la gráfica"
-                    />
-                  )}
-                  <span className={`truncate text-sm lowercase ${starred ? 'font-bold' : ''}`}>
-                    {m.name}
-                  </span>
-                </button>
-                {effs.length > 1 && (
-                  <button
-                    onClick={() =>
-                      setOpenEfforts(
-                        openEfforts.includes(m.id)
-                          ? openEfforts.filter((x) => x !== m.id)
-                          : [...openEfforts, m.id],
-                      )
-                    }
-                    title="elegir niveles de esfuerzo"
-                    className={`shrink-0 rounded-full px-1.5 text-[0.65rem] font-semibold ${p.picked(m).length ? 'bg-white text-bg' : 'border border-white-30 text-white-50 hover:text-white'}`}
-                  >
-                    {p.picked(m).length
-                      ? `${p.picked(m).length}/${effs.length}`
-                      : `${effs.length} esf.`}
-                  </button>
-                )}
-                {val && <span className="shrink-0 text-xs font-semibold text-white-80">{val}</span>}
-                <button
-                  onClick={() => p.onStar(m.id)}
-                  title={starred ? 'quitar destacado' : 'destacar'}
-                  className={`shrink-0 ${starred ? 'text-white' : 'text-white-30 hover:text-white'}`}
-                >
-                  <StarIcon on={starred} />
-                </button>
-              </div>
-              {effs.length > 1 && (openEfforts.includes(m.id) || p.picked(m).length > 0) && (
-                <div className="mt-1 mb-2 ml-8 flex flex-wrap items-center gap-1">
-                  <span className="mr-1 text-[0.65rem] text-white-50">esfuerzo</span>
-                  {effs.map((v) => {
-                    const sel = p.picked(m).includes(v.effort!)
-                    return (
-                      <button
-                        key={v.id}
-                        onClick={() => p.onEffort(m.id, v.effort!)}
-                        className={`rounded-full px-2 py-0.5 text-[0.7rem] font-semibold ${sel ? 'bg-white text-bg' : 'border border-white-30 text-white-80 hover:border-white'}`}
-                      >
-                        {v.effort}
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
-      {ordered.length > list.length || more ? (
-        <button onClick={() => setMore(!more)} className="text-xs text-white-50 hover:text-white">
-          {more ? 'ver menos' : `ver los ${withData.length} modelos`}
+        <button
+          onClick={() => setOpen(!isOpen)}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+        >
+          <LabLogo lab={p.lab} name={p.name} className="h-5 w-5" />
+          <span className="truncate font-semibold lowercase">{p.name}</span>
+          {p.shape && <ShapeIcon shape={p.shape} />}
+          <span className="text-xs text-white-50">
+            {p.on}/{p.models.length}
+          </span>
+          <span className={`text-white-50 transition-transform ${isOpen ? 'rotate-180' : ''}`}>
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 14 14"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            >
+              <path d="M3 5l4 4 4-4" />
+            </svg>
+          </span>
         </button>
-      ) : null}
-      {without.length > 0 && (
-        <div>
-          <button
-            onClick={() => setNoData(!noData)}
-            className="text-xs text-white-50 hover:text-white"
-          >
-            {noData
-              ? 'ocultar'
-              : `${without.length} recientes sin datos de ${p.missing || 'esta métrica'}`}
-          </button>
-          {noData && (
-            <div className="mt-1 flex flex-wrap gap-1.5">
-              {without.map((m) => (
-                <span
-                  key={m.id}
-                  title={`todavía nadie ha publicado ${p.missing} para este modelo`}
-                  className="rounded-full border border-dashed border-white-30 px-2.5 py-0.5 text-xs text-white-50 lowercase"
+        {isOpen && (
+          <span className="flex gap-3 text-xs text-white-50">
+            <button className="hover:text-white" onClick={() => p.onAll(true)}>
+              todos
+            </button>
+            <button className="hover:text-white" onClick={() => p.onAll(false)}>
+              ninguno
+            </button>
+          </span>
+        )}
+      </div>
+      {isOpen && (
+        <div className="mt-2 space-y-1">
+          {p.models.map((m) => {
+            const on = p.isShown(m)
+            const starred = p.isStarred(m)
+            const effs = on ? p.efforts(m) : []
+            const val = p.value(m)
+            const picked = p.picked(m)
+            return (
+              <div key={m.id}>
+                <div
+                  className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 transition-colors ${on ? 'border-white-50' : 'border-transparent opacity-50 hover:opacity-80'}`}
                 >
-                  {m.name}
-                </span>
-              ))}
-            </div>
-          )}
+                  <button
+                    onClick={() => p.onToggle(m.id)}
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  >
+                    <span
+                      className={`grid h-4 w-4 shrink-0 place-items-center rounded-full border ${on ? 'border-white bg-white' : 'border-white-50'}`}
+                    >
+                      {on && <span className="h-1.5 w-1.5 rounded-full bg-bg" />}
+                    </span>
+                    {on && p.tone && (
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full bg-white"
+                        style={{ opacity: p.tone(m) }}
+                        title="su opacidad en la gráfica"
+                      />
+                    )}
+                    <span className={`truncate text-sm lowercase ${starred ? 'font-bold' : ''}`}>
+                      {m.name}
+                    </span>
+                    {m.releaseDate && (
+                      <span className="shrink-0 text-[0.65rem] text-white-50">
+                        {m.releaseDate.slice(0, 7)}
+                      </span>
+                    )}
+                  </button>
+                  {effs.length > 1 && (
+                    <button
+                      onClick={() =>
+                        setOpenEfforts(
+                          openEfforts.includes(m.id)
+                            ? openEfforts.filter((x) => x !== m.id)
+                            : [...openEfforts, m.id],
+                        )
+                      }
+                      title="elegir niveles de esfuerzo"
+                      className={`shrink-0 rounded-full px-1.5 text-[0.65rem] font-semibold ${picked.length ? 'bg-white text-bg' : 'border border-white-30 text-white-50 hover:text-white'}`}
+                    >
+                      {picked.length ? `${picked.length}/${effs.length}` : `${effs.length} esf.`}
+                    </button>
+                  )}
+                  {val && (
+                    <span className="shrink-0 text-xs font-semibold text-white-80">{val}</span>
+                  )}
+                  <button
+                    onClick={() => p.onStar(m.id)}
+                    title={starred ? 'quitar destacado' : 'destacar'}
+                    className={`shrink-0 ${starred ? 'text-white' : 'text-white-30 hover:text-white'}`}
+                  >
+                    <StarIcon on={starred} />
+                  </button>
+                </div>
+                {effs.length > 1 && (openEfforts.includes(m.id) || picked.length > 0) && (
+                  <div className="mt-1 mb-2 ml-8 flex flex-wrap items-center gap-1">
+                    <span className="mr-1 text-[0.65rem] text-white-50">esfuerzo</span>
+                    {effs.map((v) => {
+                      const sel = picked.includes(v.effort!)
+                      return (
+                        <button
+                          key={v.id}
+                          onClick={() => p.onEffort(m.id, v.effort!)}
+                          className={`rounded-full px-2 py-0.5 text-[0.7rem] font-semibold ${sel ? 'bg-white text-bg' : 'border border-white-30 text-white-80 hover:border-white'}`}
+                        >
+                          {v.effort}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
@@ -954,18 +1069,12 @@ function Pill({
   )
 }
 
-// the lab's marker as it appears on the chart. on a white tile it sits on a
-// small cyan disc so it stays white, like on the poster
-function ShapeIcon({ shape, dark }: { shape: Shape; dark?: boolean }) {
+// the lab's marker as it appears on the chart; cyan when it sits on a white tile
+function ShapeIcon({ shape, color }: { shape: Shape; color?: string }) {
   return (
-    <span
-      className={`grid place-items-center rounded-full ${dark ? 'h-5 w-5 bg-bg' : ''}`}
-      title="forma en la gráfica"
-    >
-      <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
-        <Marker shape={shape} x={7} y={7} r={4.5} />
-      </svg>
-    </span>
+    <svg width="14" height="14" viewBox="0 0 14 14" aria-label={`forma: ${shape}`}>
+      <Marker shape={shape} x={7} y={7} r={4.5} color={color ?? '#ffffff'} />
+    </svg>
   )
 }
 
