@@ -1,8 +1,9 @@
-// the chart editor, four steps opened one at a time:
+// the chart editor, five steps opened one at a time:
 //   1. gráfica y fuente   what kind of chart, from which source, which metric
 //   2. laboratorios       every lab, by logo
 //   3. modelos            plain lists grouped by lab: toggle, star, efforts
-//   4. aspecto            format, language, text and style
+//   4. aspecto            format, text and style
+//   5. exportar           png, copy, svg, csv, every format
 import { type ReactNode, useMemo, useState, useEffect, useRef } from 'react'
 import { SOURCE_ORDER } from '../charts/catalogue.ts'
 import { Marker } from '../charts/primitives.tsx'
@@ -48,7 +49,7 @@ const types = (): Array<{ value: ChartType; label: string; hint: string }> => [
   },
 ]
 
-export type Step = 1 | 2 | 3 | 4
+export type Step = 1 | 2 | 3 | 4 | 5
 
 export function Editor({
   data,
@@ -95,11 +96,7 @@ export function Editor({
     : L('todos', 'all')
 
   return (
-    <div className="pb-24">
-      <div className="sticky top-0 z-10 border-b border-white-20 bg-bg px-5 py-4">
-        {exportPanel}
-      </div>
-
+    <div>
       <StepBox
         n={1}
         title={L('gráfica y fuente', 'chart and source')}
@@ -170,11 +167,11 @@ export function Editor({
         summary={`${FORMATS[spec.format].label}, ${FORMATS[spec.format].hint}`}
         open={step === 4}
         onToggle={() => toggle(4)}
-        // the last step closes everything, leaving the summaries and the export bar
+        // finishing the look leads to the way out: export
         done={done.includes(4)}
         onNext={() => {
           onDone(4)
-          onStep(null)
+          onStep(5)
         }}
         last
       >
@@ -322,6 +319,16 @@ export function Editor({
           )}
         </Group>
       </StepBox>
+
+      <StepBox
+        n={5}
+        title={L('exportar', 'export')}
+        summary={L('png, copiar, svg, csv, zip', 'png, copy, svg, csv, zip')}
+        open={step === 5}
+        onToggle={() => toggle(5)}
+      >
+        {exportPanel}
+      </StepBox>
     </div>
   )
 }
@@ -385,8 +392,7 @@ function StepBox({
   }, [open])
 
   return (
-    // scroll-mt leaves room for the export bar pinned at the top of the sidebar
-    <section ref={ref} className="scroll-mt-28 border-b border-white-20">
+    <section ref={ref} className="border-b border-white-20">
       <button onClick={onToggle} className="flex w-full items-center gap-3 px-5 py-4 text-left">
         {/* done: filled with a tick. current: a strong ring. still to do: faint */}
         <span

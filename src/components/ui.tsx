@@ -127,12 +127,14 @@ export function Button({
   solid,
   disabled,
   title,
+  className = '',
 }: {
   children: ReactNode
   onClick: () => void
   solid?: boolean
   disabled?: boolean
   title?: string
+  className?: string
 }) {
   return (
     <button
@@ -140,11 +142,11 @@ export function Button({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold tracking-wide lowercase transition-opacity duration-300 active:scale-[0.97] disabled:opacity-40 ${
+      className={`inline-flex items-center justify-center gap-2 rounded-full px-5 py-2 text-sm font-semibold tracking-wide lowercase transition-opacity duration-300 active:scale-[0.97] disabled:opacity-40 ${
         solid
           ? 'bg-solid text-on-solid hover:opacity-90'
           : 'border-2 border-white-50 text-white hover:border-white'
-      }`}
+      } ${className}`}
     >
       {children}
     </button>

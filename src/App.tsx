@@ -221,32 +221,47 @@ export function App() {
 
   const name = slug(chartName(spec))
   const base = `${fileBase(spec, name, data.generatedAt)}${BRAND.id === 'aaa' ? '' : `-${BRAND.id}`}`
+  // the last step of the editor: every way out of it, as plain buttons
+  const exportAllFormats = () =>
+    run('formats', async () => {
+      const items: BatchItem[] = (Object.keys(FORMATS) as FormatId[]).flatMap((format) =>
+        EXPORT_LANGS.map((l) => ({ name, spec: { ...spec, format, locale: l } })),
+      )
+      download(
+        await exportZip(data, items, { png: true, svg: true, csv: true, scale: 2 }, (d, t) =>
+          setBusy(`formats ${d}/${t}`),
+        ),
+        `${name}-${L('todos-los-formatos', 'all-formats')}.zip`,
+      )
+    })
+  const { w: fw, h: fh } = FORMATS[spec.format]
   const exportPanel = (
     <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
+      <Button
+        solid
+        disabled={!!busy}
+        className="w-full !py-3"
+        onClick={() =>
+          run('png', async () => download(await posterPng(data, spec, 2), `${base}.png`))
+        }
+      >
+        {busy === 'png' ? L('exportando...', 'exporting...') : L('descargar png', 'download png')}
+      </Button>
+      <Button
+        disabled={!!busy}
+        className="w-full"
+        title={L(
+          'copia la imagen para pegarla directamente en x o linkedin',
+          'copies the image to paste it straight into x or linkedin',
+        )}
+        onClick={() => run('copy', async () => copyPng(await posterPng(data, spec, 2)))}
+      >
+        {busy === 'copy' ? L('copiando...', 'copying...') : L('copiar imagen', 'copy image')}
+      </Button>
+      <div className="grid grid-cols-2 gap-2">
         <Button
-          solid
           disabled={!!busy}
-          onClick={() =>
-            run('png', async () => download(await posterPng(data, spec, 2), `${base}.png`))
-          }
-        >
-          {busy === 'png' ? L('exportando...', 'exporting...') : L('descargar png', 'download png')}
-        </Button>
-        <Button
-          disabled={!!busy}
-          title={L(
-            'copiar el png para pegarlo directamente en x',
-            'copy the png to paste it straight into x',
-          )}
-          onClick={() => run('copy', async () => copyPng(await posterPng(data, spec, 2)))}
-        >
-          {busy === 'copy' ? L('copiado', 'copied') : L('copiar', 'copy')}
-        </Button>
-      </div>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-white-50">
-        <button
-          className="hover:text-white"
+          title={L('vectorial, con la fuente incluida', 'vector, with the font embedded')}
           onClick={() =>
             run('svg', async () =>
               download(await posterSvg(data, spec), `${base}.svg`, 'image/svg+xml'),
@@ -254,9 +269,10 @@ export function App() {
           }
         >
           svg
-        </button>
-        <button
-          className="hover:text-white"
+        </Button>
+        <Button
+          disabled={!!busy}
+          title={L('los datos de la gráfica', 'the data behind the chart')}
           onClick={() =>
             run('csv', async () =>
               download(posterCsv(data, spec), `${name}-${spec.locale}.csv`, 'text/csv'),
@@ -264,47 +280,31 @@ export function App() {
           }
         >
           csv
-        </button>
-        <button
-          className="hover:text-white"
-          title={
-            CAN_SWITCH_LANG
-              ? L(
-                  'esta gráfica en todos los formatos y en los dos idiomas',
-                  'this chart in every format and both languages',
-                )
-              : 'this chart in every format'
-          }
-          onClick={() =>
-            run('formats', async () => {
-              const items: BatchItem[] = (Object.keys(FORMATS) as FormatId[]).flatMap((format) =>
-                EXPORT_LANGS.map((l) => ({
-                  name,
-                  spec: { ...spec, format, locale: l },
-                })),
-              )
-              download(
-                await exportZip(
-                  data,
-                  items,
-                  { png: true, svg: true, csv: true, scale: 2 },
-                  (d, t) => setBusy(`formats ${d}/${t}`),
-                ),
-                `${name}-${L('todos-los-formatos', 'all-formats')}.zip`,
-              )
-            })
-          }
-        >
-          {busy?.startsWith('formats')
-            ? busy.replace('formats', 'zip')
-            : L('todos los formatos', 'all formats')}
-        </button>
-        <span className="ml-auto font-medium">
-          {pristine.current
-            ? L('sin cambios', 'no changes')
-            : L('guardada en mis gráficas', 'saved in my charts')}
-        </span>
+        </Button>
       </div>
+      <Button
+        disabled={!!busy}
+        className="w-full"
+        title={
+          CAN_SWITCH_LANG
+            ? L(
+                'esta gráfica en todos los formatos y en los dos idiomas',
+                'this chart in every format and both languages',
+              )
+            : 'this chart in every format'
+        }
+        onClick={exportAllFormats}
+      >
+        {busy?.startsWith('formats')
+          ? busy.replace('formats', 'zip')
+          : L('todos los formatos (zip)', 'all formats (zip)')}
+      </Button>
+      <p className="pt-1 text-xs text-white-50">
+        png {fw * 2}×{fh * 2}.{' '}
+        {pristine.current
+          ? L('sin cambios respecto a la galería.', 'unchanged from the gallery.')
+          : L('guardada en mis gráficas.', 'saved in my charts.')}
+      </p>
     </div>
   )
 
