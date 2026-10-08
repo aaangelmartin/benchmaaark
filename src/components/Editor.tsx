@@ -19,13 +19,7 @@ import type { Shape } from '../charts/theme.ts'
 import { getLang, L } from '../lib/lang.ts'
 import type { Dataset, MetricDef, SourceId } from '../lib/types.ts'
 import { LabLogo } from './LabLogo.tsx'
-import {
-  LinesPicker,
-  type PickerKind,
-  RailPicker,
-  TablePicker,
-  usePicker,
-} from './ModelPickers.tsx'
+import { LinesPicker, usePicker } from './ModelPickers.tsx'
 import { Field, inputClass, Pills, Toggle } from './ui.tsx'
 
 const CYAN = '#00b5e2'
@@ -675,30 +669,6 @@ function LabsStep({
 
 // ---- 3. models --------------------------------------------------------------
 
-const pickers = (): Array<[PickerKind, string, string]> => [
-  [
-    'lines',
-    L('a · líneas', 'a · lines'),
-    L(
-      'cada línea de cada laboratorio, un chip por versión',
-      'every line of every lab, one chip per version',
-    ),
-  ],
-  [
-    'table',
-    L('b · tabla', 'b · table'),
-    L('una tabla grande, ordenable, a pantalla completa', 'one big sortable table, full screen'),
-  ],
-  [
-    'rail',
-    L('c · carril', 'c · rail'),
-    L(
-      'un laboratorio cada vez, con sus modelos en lista',
-      'one lab at a time, with its models in a list',
-    ),
-  ],
-]
-
 function ModelsStep({
   data,
   spec,
@@ -714,51 +684,15 @@ function ModelsStep({
   setF: (p: Partial<ChartSpec['filter']>) => void
   setO: (p: Partial<ChartSpec['options']>) => void
 }) {
-  const [kind, setKind] = useState<PickerKind>(
-    () => (localStorage.getItem('benchmaaark:picker') as PickerKind) || 'lines',
-  )
   const p = usePicker(data, spec, r, onChange)
-  const PICKERS = pickers()
   const req = requiredMetrics(spec)
   const anyEfforts = useMemo(
     () => data.models.some((m) => m.family && req.every((id) => m.values[id] !== undefined)),
     [data, spec.x, spec.y, spec.type], // eslint-disable-line react-hooks/exhaustive-deps
   )
   const touched = spec.filter.include.length + spec.filter.exclude.length
-  const choose = (k: PickerKind) => {
-    setKind(k)
-    try {
-      localStorage.setItem('benchmaaark:picker', k)
-    } catch {
-      // not kept, nothing else to do
-    }
-  }
-
   return (
     <div className="space-y-4">
-      {/* temporary: three designs to try with real data before keeping one */}
-      <div className="rounded-xl border border-dashed border-white-30 p-3">
-        <p className="mb-2 text-xs text-white-50">
-          {L(
-            'tres diseños para probar. dime cuál se queda.',
-            'three designs to try. tell me which one stays.',
-          )}
-        </p>
-        <div className="flex flex-wrap gap-1.5">
-          {PICKERS.map(([k, label, hint]) => (
-            <button
-              key={k}
-              onClick={() => choose(k)}
-              title={hint}
-              className={`rounded-full px-3 py-1 text-xs font-semibold ${kind === k ? 'bg-solid text-on-solid' : 'border border-white-30 text-white-80 hover:border-white'}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <p className="mt-2 text-xs text-white-50">{PICKERS.find(([k]) => k === kind)?.[2]}.</p>
-      </div>
-
       {(spec.type === 'scatter' || spec.type === 'bars' || spec.type === 'timeline') &&
         anyEfforts && (
           <Toggle
@@ -786,9 +720,7 @@ function ModelsStep({
         </button>
       )}
 
-      {kind === 'lines' && <LinesPicker p={p} />}
-      {kind === 'table' && <TablePicker p={p} />}
-      {kind === 'rail' && <RailPicker p={p} />}
+      <LinesPicker p={p} />
     </div>
   )
 }
