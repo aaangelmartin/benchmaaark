@@ -175,6 +175,37 @@ export function Editor({
         }}
         last
       >
+        {/* what is drawn on the chart comes first, where it is easy to find */}
+        {(spec.type === 'scatter' || spec.type === 'timeline') && (
+          <Group title={L('líneas y ejes', 'lines and axes')}>
+            {(spec.type === 'scatter' || spec.type === 'timeline') && (
+              <Toggle
+                label={
+                  spec.type === 'scatter'
+                    ? L('línea de frontera de pareto', 'pareto frontier line')
+                    : L('línea de récords', 'record line')
+                }
+                checked={spec.options.frontier}
+                onChange={(v) => setO({ frontier: v })}
+              />
+            )}
+            {spec.type === 'scatter' && (
+              <Toggle
+                label={L('eje horizontal logarítmico', 'logarithmic horizontal axis')}
+                checked={spec.options.logX}
+                onChange={(v) => setO({ logX: v })}
+              />
+            )}
+            {(spec.type === 'scatter' || spec.type === 'timeline') && (
+              <Toggle
+                label={L('eje vertical logarítmico', 'logarithmic vertical axis')}
+                checked={spec.options.logY}
+                onChange={(v) => setO({ logY: v })}
+              />
+            )}
+          </Group>
+        )}
+
         <Group title={L('formato', 'format')}>
           <div className="grid grid-cols-5 gap-2">
             {(Object.keys(FORMATS) as FormatId[]).map((f) => {
@@ -284,31 +315,6 @@ export function Editor({
                 onChange={(v) => setO({ sort: v })}
               />
             </Field>
-          )}
-          {(spec.type === 'scatter' || spec.type === 'timeline') && (
-            <Toggle
-              label={
-                spec.type === 'scatter'
-                  ? L('línea de frontera de pareto', 'pareto frontier line')
-                  : L('línea de récords', 'record line')
-              }
-              checked={spec.options.frontier}
-              onChange={(v) => setO({ frontier: v })}
-            />
-          )}
-          {spec.type === 'scatter' && (
-            <Toggle
-              label={L('eje horizontal logarítmico', 'logarithmic horizontal axis')}
-              checked={spec.options.logX}
-              onChange={(v) => setO({ logX: v })}
-            />
-          )}
-          {(spec.type === 'scatter' || spec.type === 'timeline') && (
-            <Toggle
-              label={L('eje vertical logarítmico', 'logarithmic vertical axis')}
-              checked={spec.options.logY}
-              onChange={(v) => setO({ logY: v })}
-            />
           )}
           {(spec.type === 'bars' || spec.type === 'table') && (
             <Toggle
