@@ -64,9 +64,9 @@ export const DEFAULT_SPEC: ChartSpec = {
   locale: 'es',
   title: null,
   subtitle: null,
-  x: 'epoch-cursorbench-cost',
-  y: 'epoch-cursorbench',
-  metrics: ['eci', 'aa-intelligence', 'epoch-cursorbench', 'epoch-cursorbench-cost'],
+  x: 'cursorbench-cost',
+  y: 'cursorbench',
+  metrics: ['cursorbench', 'cursorbench-cost', 'cursorbench-tokens', 'cursorbench-steps'],
   filter: {
     labs: [],
     weights: 'all',
@@ -110,14 +110,120 @@ export const TEMPLATES: Template[] = [
     name: { es: 'programación vs coste', en: 'coding vs cost' },
     spec: {
       type: 'scatter',
-      x: 'epoch-cursorbench-cost',
-      y: 'epoch-cursorbench',
+      x: 'cursorbench-cost',
+      y: 'cursorbench',
       title: { es: 'cuánto cuesta pensar más', en: 'what thinking harder costs' },
       subtitle: {
         es: 'cursorbench: tareas reales de programación. cada línea es un modelo de low a max: cuanto más piensa, mejor resuelve y más cuesta cada tarea.',
         en: 'cursorbench: real coding tasks. each line is one model from low to max: the more it thinks, the better it solves and the more each task costs.',
       },
-      filter: { sinceMonths: 12, top: 8, labs: ['openai', 'anthropic', 'google', 'xai'] },
+      filter: { sinceMonths: 12, top: 8 },
+      options: { frontier: false, logX: true, efforts: 'all' },
+    },
+  },
+  {
+    id: 'cursorbench-ranking',
+    name: { es: 'ranking cursorbench', en: 'cursorbench ranking' },
+    spec: {
+      type: 'bars',
+      y: 'cursorbench',
+      title: { es: 'quién programa mejor', en: 'who codes best' },
+      subtitle: {
+        es: 'cursorbench: tareas reales de programación de cursor. cada modelo en su mejor nivel de esfuerzo.',
+        en: 'cursorbench: real coding tasks from cursor. each model at its best effort level.',
+      },
+      filter: { top: 16, sinceMonths: null },
+      options: { color: 'lab' },
+    },
+  },
+  {
+    id: 'cursorbench-efforts',
+    name: { es: 'cursorbench por esfuerzo', en: 'cursorbench by effort' },
+    spec: {
+      type: 'bars',
+      y: 'cursorbench',
+      title: { es: 'cada modelo, cada esfuerzo', en: 'every model, every effort' },
+      subtitle: {
+        es: 'cursorbench en cada nivel de esfuerzo de los modelos de la frontera.',
+        en: 'cursorbench at every effort level of the frontier models.',
+      },
+      filter: { top: 4, sinceMonths: null },
+      options: { efforts: 'all', color: 'model', showLab: false },
+    },
+  },
+  {
+    id: 'tokens-vs-score',
+    name: { es: 'tokens vs acierto', en: 'tokens vs score' },
+    spec: {
+      type: 'scatter',
+      x: 'cursorbench-tokens',
+      y: 'cursorbench',
+      title: { es: 'pensar más gasta más', en: 'thinking more spends more' },
+      subtitle: {
+        es: 'tokens por tarea en cursorbench frente al acierto, de low a max.',
+        en: 'tokens per task on cursorbench vs score, from low to max.',
+      },
+      filter: { sinceMonths: 12, top: 6 },
+      options: { frontier: false, logX: true, efforts: 'all' },
+    },
+  },
+
+  {
+    id: 'cost-ranking',
+    name: { es: 'coste por tarea', en: 'cost per task' },
+    spec: {
+      type: 'bars',
+      y: 'cursorbench-cost',
+      title: { es: 'cuánto cuesta una tarea', en: 'what one task costs' },
+      subtitle: {
+        es: 'coste por tarea en cursorbench de los 15 mejores modelos, en su mejor nivel de esfuerzo.',
+        en: 'cost per cursorbench task for the 15 best models, at their best effort level.',
+      },
+      filter: { top: 15, rankBy: 'cursorbench', sinceMonths: null },
+      options: { sort: 'worst', color: 'lab' },
+    },
+  },
+  {
+    id: 'leaderboard',
+    name: { es: 'tabla resumen', en: 'leaderboard table' },
+    spec: {
+      type: 'table',
+      metrics: [
+        'cursorbench',
+        'cursorbench-cost',
+        'cursorbench-tokens',
+        'cursorbench-steps',
+        'eci',
+      ],
+      title: { es: 'cursorbench al detalle', en: 'cursorbench in detail' },
+      subtitle: null,
+      filter: { top: 12, rankBy: 'cursorbench', sinceMonths: null },
+    },
+  },
+  {
+    id: 'compare-frontier',
+    name: { es: 'comparativa frontera', en: 'frontier comparison' },
+    spec: {
+      type: 'compare',
+      metrics: ['cursorbench', 'cursorbench-cost', 'cursorbench-tokens', 'cursorbench-steps'],
+      title: { es: 'cara a cara en la frontera', en: 'head to head at the frontier' },
+      subtitle: null,
+      filter: { top: 4, rankBy: 'cursorbench', sinceMonths: null },
+    },
+  },
+  {
+    id: 'reasoning-vs-cost',
+    name: { es: 'razonamiento vs coste', en: 'reasoning vs cost' },
+    spec: {
+      type: 'scatter',
+      x: 'epoch-arc-agi-2-cost',
+      y: 'epoch-arc-agi-2',
+      title: { es: 'razonar cuesta', en: 'reasoning has a price' },
+      subtitle: {
+        es: 'arc-agi-2: puzles de razonamiento abstracto. coste por tarea en cada nivel de esfuerzo.',
+        en: 'arc-agi-2: abstract reasoning puzzles. cost per task at each effort level.',
+      },
+      filter: { sinceMonths: 12, top: 8 },
       options: { frontier: false, logX: true, efforts: 'all' },
     },
   },
@@ -138,37 +244,6 @@ export const TEMPLATES: Template[] = [
       },
       filter: { sinceMonths: 12, top: 8, labs: ['openai', 'anthropic', 'google', 'xai'] },
       options: { frontier: false, logX: true, efforts: 'all' },
-    },
-  },
-  {
-    id: 'reasoning-vs-cost',
-    name: { es: 'razonamiento vs coste', en: 'reasoning vs cost' },
-    spec: {
-      type: 'scatter',
-      x: 'epoch-arc-agi-2-cost',
-      y: 'epoch-arc-agi-2',
-      title: { es: 'razonar cuesta', en: 'reasoning has a price' },
-      subtitle: {
-        es: 'arc-agi-2: puzles de razonamiento abstracto. coste por tarea en cada nivel de esfuerzo.',
-        en: 'arc-agi-2: abstract reasoning puzzles. cost per task at each effort level.',
-      },
-      filter: { sinceMonths: 12, top: 8 },
-      options: { frontier: false, logX: true, efforts: 'all' },
-    },
-  },
-  {
-    id: 'cost-ranking',
-    name: { es: 'coste por tarea', en: 'cost per task' },
-    spec: {
-      type: 'bars',
-      y: 'epoch-cursorbench-cost',
-      title: { es: 'cuánto cuesta una tarea', en: 'what one task costs' },
-      subtitle: {
-        es: 'coste por tarea en cursorbench de los 15 mejores modelos, en su mejor nivel de esfuerzo.',
-        en: 'cost per cursorbench task for the 15 best models, at their best effort level.',
-      },
-      filter: { top: 15, rankBy: 'epoch-cursorbench', sinceMonths: null },
-      options: { sort: 'worst', color: 'lab' },
     },
   },
   {
@@ -294,47 +369,25 @@ export const TEMPLATES: Template[] = [
       options: { frontier: true, logY: true, series: 'none' },
     },
   },
-  {
-    id: 'compare-frontier',
-    name: { es: 'comparativa frontera', en: 'frontier comparison' },
-    spec: {
-      type: 'compare',
-      metrics: [
-        'eci',
-        'epoch-gpqa-diamond',
-        'epoch-frontiercode',
-        'epoch-frontiermath-tiers-1-3-v2-private',
-        'epoch-cursorbench',
-        'epoch-cursorbench-cost',
-      ],
-      title: { es: 'cara a cara en la frontera', en: 'head to head at the frontier' },
-      subtitle: null,
-      filter: { top: 4, rankBy: 'eci', sinceMonths: null },
-    },
-  },
-  {
-    id: 'leaderboard',
-    name: { es: 'tabla resumen', en: 'leaderboard table' },
-    spec: {
-      type: 'table',
-      metrics: [
-        'eci',
-        'aa-intelligence',
-        'arena-text',
-        'epoch-cursorbench',
-        'epoch-cursorbench-cost',
-      ],
-      title: { es: 'el estado de la ia', en: 'the state of ai' },
-      subtitle: null,
-      filter: { top: 10, rankBy: 'eci', sinceMonths: null },
-    },
-  },
 ]
 
 // charts saved before cost per task existed (in a link or the url) used list
 // prices per token. those never move with effort, so they are swapped for the
 // cost per task of the same benchmark, or for cursorbench when there is none.
 export function normalizeSpec(spec: ChartSpec, data: Dataset): ChartSpec {
+  // cursorbench used to come through epoch
+  const renamed: Record<string, string> = {
+    'epoch-cursorbench': 'cursorbench',
+    'epoch-cursorbench-cost': 'cursorbench-cost',
+  }
+  const re = (id: string) => renamed[id] ?? id
+  spec = {
+    ...spec,
+    x: re(spec.x),
+    y: re(spec.y),
+    metrics: spec.metrics.map(re),
+    filter: { ...spec.filter, rankBy: spec.filter.rankBy ? re(spec.filter.rankBy) : null },
+  }
   const unit = (id: string) => data.metrics.find((m) => m.id === id)?.unit
   const exists = (id: string) => data.metrics.some((m) => m.id === id)
   let out = spec
@@ -347,18 +400,16 @@ export function normalizeSpec(spec: ChartSpec, data: Dataset): ChartSpec {
       ? { ...spec, x: paired, options: { ...spec.options, logX: true } }
       : {
           ...spec,
-          y: 'epoch-cursorbench',
-          x: 'epoch-cursorbench-cost',
+          y: 'cursorbench',
+          x: 'cursorbench-cost',
           title: null,
           subtitle: null,
           options: { ...spec.options, logX: true },
         }
   }
   if (unit(out.y) === 'usd_per_mtok')
-    out = { ...out, y: 'epoch-cursorbench-cost', title: null, subtitle: null }
-  const metrics = out.metrics.map((id) =>
-    unit(id) === 'usd_per_mtok' ? 'epoch-cursorbench-cost' : id,
-  )
+    out = { ...out, y: 'cursorbench-cost', title: null, subtitle: null }
+  const metrics = out.metrics.map((id) => (unit(id) === 'usd_per_mtok' ? 'cursorbench-cost' : id))
   return { ...out, metrics: [...new Set(metrics)] }
 }
 

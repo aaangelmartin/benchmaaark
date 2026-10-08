@@ -10,8 +10,8 @@ const KEY_METRICS = [
   'eci',
   'aa-intelligence',
   'arena-text',
-  'epoch-cursorbench',
-  'epoch-cursorbench-cost',
+  'cursorbench',
+  'cursorbench-cost',
   'aa-speed',
 ]
 
