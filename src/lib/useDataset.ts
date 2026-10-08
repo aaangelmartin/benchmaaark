@@ -31,6 +31,8 @@ export function useDataset() {
   }, [])
 
   const poll = useCallback(async () => {
+    // the refresh api only exists under `pnpm dev`
+    if (!import.meta.env.DEV) return
     try {
       const r = await fetch(`${import.meta.env.BASE_URL}api/status`)
       if (!r.ok || !r.headers.get('content-type')?.includes('json')) return
