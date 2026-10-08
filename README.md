@@ -22,13 +22,14 @@ the only key is optional: `AA_API_KEY` for artificial analysis. put it in `.env`
 
 ## sources
 
-| source                                                                    | what it adds                                                                                        | access                                                       |
-| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| [epoch ai](https://epoch.ai/benchmarks)                                   | capabilities index (eci), ~70 benchmarks, release dates, open or closed weights, metr time horizons | public zip, cc-by 4.0                                        |
-| [openrouter](https://openrouter.ai/models)                                | input, output and blended (3:1) prices, context window                                              | public api                                                   |
-| [lmarena](https://huggingface.co/datasets/lmarena-ai/leaderboard-dataset) | human-preference elo: text, webdev, vision, search                                                  | public hugging face dataset                                  |
-| [artificial analysis](https://artificialanalysis.ai)                      | intelligence, coding and math indices, output speed, latency                                        | free api key in `AA_API_KEY` (copy `.env.example` to `.env`) |
-| `data/manual.json`                                                        | your own numbers, aliases and exclusions                                                            | local                                                        |
+| source                                                                    | what it adds                                                                                                    | access                                                       |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| [cursorbench](https://cursor.com/cursorbench)                             | the default: score, cost per task, tokens per task and steps per task for every model at every reasoning effort | public leaderboard page                                      |
+| [epoch ai](https://epoch.ai/benchmarks)                                   | capabilities index (eci), ~70 benchmarks, release dates, open or closed weights, metr time horizons             | public zip, cc-by 4.0                                        |
+| [openrouter](https://openrouter.ai/models)                                | input, output and blended (3:1) prices, context window                                                          | public api                                                   |
+| [lmarena](https://huggingface.co/datasets/lmarena-ai/leaderboard-dataset) | human-preference elo: text, webdev, vision, search                                                              | public hugging face dataset                                  |
+| [artificial analysis](https://artificialanalysis.ai)                      | intelligence, coding and math indices, output speed, latency                                                    | free api key in `AA_API_KEY` (copy `.env.example` to `.env`) |
+| `data/manual.json`                                                        | your own numbers, aliases and exclusions                                                                        | local                                                        |
 
 every exported chart prints the sources it used and the data date in the footer.
 
