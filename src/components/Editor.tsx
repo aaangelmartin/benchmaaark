@@ -153,6 +153,9 @@ export function Editor({
         summary={`${FORMATS[spec.format].label}, ${FORMATS[spec.format].hint}`}
         open={step === 4}
         onToggle={() => toggle(4)}
+        // the last step closes everything, leaving the summaries and the export bar
+        onNext={() => onStep(null)}
+        last
       >
         <Group title={L('formato', 'format')}>
           <div className="grid grid-cols-5 gap-2">
@@ -329,6 +332,7 @@ function StepBox({
   open,
   onToggle,
   onNext,
+  last,
   children,
 }: {
   n: number
@@ -337,6 +341,7 @@ function StepBox({
   open: boolean
   onToggle: () => void
   onNext?: () => void
+  last?: boolean
   children: ReactNode
 }) {
   return (
@@ -375,9 +380,9 @@ function StepBox({
           {onNext && (
             <button
               onClick={onNext}
-              className="w-full rounded-full border border-white-30 py-2 text-sm font-semibold text-white-80 hover:border-white hover:text-white"
+              className={`w-full rounded-full py-2 text-sm font-semibold ${last ? 'bg-solid text-on-solid' : 'border border-white-30 text-white-80 hover:border-white hover:text-white'}`}
             >
-              {L('siguiente', 'next')}
+              {last ? L('terminar', 'finish') : L('siguiente', 'next')}
             </button>
           )}
         </div>
