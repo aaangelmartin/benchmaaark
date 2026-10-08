@@ -410,8 +410,9 @@ export function App() {
         )}
 
         {view === 'editor' && (
-          <div className="lg:grid lg:grid-cols-[400px_1fr]">
-            <aside className="scrollbar-thin border-white-20 lg:sticky lg:top-14 lg:h-[calc(100dvh-3.5rem)] lg:overflow-y-auto lg:border-r">
+          // the editor fills the screen exactly: the page never scrolls, only the sidebar does
+          <div className="lg:grid lg:h-[calc(100dvh-3.5rem)] lg:grid-cols-[400px_1fr] lg:overflow-hidden">
+            <aside className="scrollbar-thin border-white-20 lg:h-full lg:overflow-y-auto lg:border-r">
               <Editor
                 data={data}
                 spec={spec}
@@ -423,7 +424,7 @@ export function App() {
             </aside>
             {/* the poster sits in the middle of the space next to the sidebar,
                 and stays there while the sidebar scrolls */}
-            <main className="flex items-center justify-center p-4 md:p-8 lg:sticky lg:top-14 lg:h-[calc(100dvh-3.5rem)]">
+            <main className="flex items-center justify-center p-4 md:p-8 lg:h-full lg:overflow-hidden">
               <Preview data={data} spec={spec} onSelect={setModel} />
             </main>
           </div>
@@ -473,7 +474,7 @@ export function App() {
         {view === 'models' && <DataView data={data} onSelect={setModel} />}
       </div>
 
-      <Footer data={data} status={status} />
+      {view !== 'editor' && <Footer data={data} status={status} />}
       {model && (
         <ModelDrawer
           data={data}
