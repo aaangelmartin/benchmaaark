@@ -16,10 +16,15 @@ import {
   resolve,
 } from '../charts/spec.ts'
 import type { Shape } from '../charts/theme.ts'
-import { effortRank } from '../lib/effort.ts'
-import { formatValue } from '../lib/format.ts'
-import type { Dataset, MetricDef, Model, SourceId } from '../lib/types.ts'
+import type { Dataset, MetricDef, SourceId } from '../lib/types.ts'
 import { LabLogo } from './LabLogo.tsx'
+import {
+  LinesPicker,
+  type PickerKind,
+  RailPicker,
+  TablePicker,
+  usePicker,
+} from './ModelPickers.tsx'
 import { Field, inputClass, Pills, Toggle } from './ui.tsx'
 
 const CYAN = '#00b5e2'
@@ -91,7 +96,7 @@ export function Editor({
             <button
               key={t.value}
               onClick={() => set({ type: t.value })}
-              className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-colors ${spec.type === t.value ? 'border-white bg-white text-bg' : 'border-white-30 hover:border-white'}`}
+              className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-colors ${spec.type === t.value ? 'border-solid-line bg-solid text-on-solid' : 'border-white-30 hover:border-white'}`}
             >
               <TypeIcon type={t.value} />
               <span>
@@ -341,7 +346,7 @@ function StepBox({
     <section className="border-b border-white-20">
       <button onClick={onToggle} className="flex w-full items-center gap-3 px-5 py-4 text-left">
         <span
-          className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-bold ${open ? 'bg-white text-bg' : 'border border-white-50'}`}
+          className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-bold ${open ? 'bg-solid text-on-solid' : 'border border-white-50'}`}
         >
           {n}
         </span>
@@ -492,7 +497,7 @@ function MetricChooser({
                 setSource(s)
                 setMore(false)
               }}
-              className={`rounded-full px-3 py-1 text-xs font-semibold ${source === s ? 'bg-white text-bg' : 'border border-white-30 text-white-80 hover:border-white'}`}
+              className={`rounded-full px-3 py-1 text-xs font-semibold ${source === s ? 'bg-solid text-on-solid' : 'border border-white-30 text-white-80 hover:border-white'}`}
             >
               {sourceName(s)}
             </button>
@@ -508,7 +513,7 @@ function MetricChooser({
               key={m.id}
               onClick={() => pick(m)}
               title={m.label.es + (m.description ? `. ${m.description.es}` : '')}
-              className={`flex items-baseline justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors ${isOn(m) ? 'border-white bg-white text-bg' : 'border-white-20 hover:border-white-50'}`}
+              className={`flex items-baseline justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors ${isOn(m) ? 'border-solid-line bg-solid text-on-solid' : 'border-white-20 hover:border-white-50'}`}
             >
               <span className="truncate font-semibold lowercase">{m.short.es}</span>
               <span className={isOn(m) ? 'opacity-60' : 'text-white-50'}>{m.count}</span>
@@ -615,7 +620,7 @@ function LabsStep({
             <button
               key={l.id}
               onClick={() => toggle(l.id)}
-              className={`relative flex flex-col items-center gap-1.5 rounded-xl border px-1 py-3 transition-colors ${on ? 'border-white bg-white text-bg' : n ? 'border-white-20 hover:border-white-50' : 'border-white-10 opacity-45 hover:opacity-80'}`}
+              className={`relative flex flex-col items-center gap-1.5 rounded-xl border px-1 py-3 transition-colors ${on ? 'border-solid-line bg-solid text-on-solid' : n ? 'border-white-20 hover:border-white-50' : 'border-white-10 opacity-45 hover:opacity-80'}`}
             >
               {on &&
                 spec.options.series === 'lab' &&
@@ -645,8 +650,11 @@ function LabsStep({
 
 // ---- 3. models --------------------------------------------------------------
 
-type View = 'rec' | 'all' | 'on'
-type Sort = 'release' | 'score' | 'name'
+const PICKERS: Array<[PickerKind, string, string]> = [
+  ['lines', 'a · líneas', 'cada línea de cada laboratorio, un chip por versión'],
+  ['table', 'b · tabla', 'una tabla grande, ordenable, a pantalla completa'],
+  ['rail', 'c · carril', 'un laboratorio cada vez, con sus modelos en lista'],
+]
 
 function ModelsStep({
   data,
@@ -663,142 +671,43 @@ function ModelsStep({
   setF: (p: Partial<ChartSpec['filter']>) => void
   setO: (p: Partial<ChartSpec['options']>) => void
 }) {
-  const [view, setView] = useState<View>('rec')
-  const [sort, setSort] = useState<Sort>('release')
-  const [q, setQ] = useState('')
-  const labName = new Map(data.labs.map((l) => [l.id, l.name]))
+  const [kind, setKind] = useState<PickerKind>(
+    () => (localStorage.getItem('benchmaaark:picker') as PickerKind) || 'lines',
+  )
+  const p = usePicker(data, spec, r, onChange)
   const req = requiredMetrics(spec)
-  const multi = spec.type === 'compare' || spec.type === 'table'
-  const rankId = spec.filter.rankBy ?? (multi ? spec.metrics[0] : spec.y)
-  const rankDef = data.metrics.find((m) => m.id === rankId)
-  const candidateIds = useMemo(() => new Set(r.candidates.map((m) => m.id)), [r])
-  const variants = useMemo(() => {
-    const out = new Map<string, Model[]>()
-    for (const m of data.models)
-      if (m.family) (out.get(m.family) ?? out.set(m.family, []).get(m.family)!).push(m)
-    return out
-  }, [data])
-  const hasData = (m: Model) => req.every((id) => m.values[id] !== undefined)
   const anyEfforts = useMemo(
-    () => data.models.some((m) => m.family && hasData(m)),
-    [data, spec.x, spec.y, spec.type],
-  ) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const f = spec.filter
-  const toggle = (id: string) => {
-    const on = r.shown.has(id)
-    setF({
-      include: on ? f.include.filter((x) => x !== id) : [...f.include.filter((x) => x !== id), id],
-      exclude: on ? [...f.exclude.filter((x) => x !== id), id] : f.exclude.filter((x) => x !== id),
-    })
-  }
-  const setMany = (ids: string[], on: boolean) =>
-    setF({
-      include: on
-        ? [...new Set([...f.include, ...ids])]
-        : f.include.filter((x) => !ids.includes(x)),
-      exclude: on
-        ? f.exclude.filter((x) => !ids.includes(x))
-        : [...new Set([...f.exclude, ...ids])],
-    })
-  const star = (id: string) =>
-    onChange({
-      ...spec,
-      highlight: spec.highlight.includes(id)
-        ? spec.highlight.filter((h) => h !== id)
-        : [...spec.highlight, id],
-    })
-  const pickEffort = (id: string, e: string) => {
-    const cur = spec.effortPick[id] ?? []
-    const next = cur.includes(e) ? cur.filter((x) => x !== e) : [...cur, e]
-    const effortPick = { ...spec.effortPick }
-    if (next.length) effortPick[id] = next
-    else delete effortPick[id]
-    onChange({ ...spec, effortPick })
-  }
-
-  const score = (m: Model) =>
-    rankDef && m.values[rankDef.id] !== undefined
-      ? rankDef.higherIsBetter
-        ? -m.values[rankDef.id]
-        : m.values[rankDef.id]
-      : Infinity
-  const order = (a: Model, b: Model) =>
-    sort === 'release'
-      ? (b.releaseDate ?? '').localeCompare(a.releaseDate ?? '') || score(a) - score(b)
-      : sort === 'score'
-        ? score(a) - score(b)
-        : a.name.localeCompare(b.name)
-
-  const needle = q.trim().toLowerCase()
-  const inView = (m: Model) =>
-    view === 'on'
-      ? r.shown.has(m.id)
-      : view === 'rec'
-        ? r.recommended.has(m.id) || r.shown.has(m.id)
-        : true
-  const groups = useMemo(() => {
-    const byLab = new Map<string, Model[]>()
-    for (const m of r.candidates) {
-      if (!inView(m)) continue
-      const lab = labName.get(m.lab) ?? m.lab
-      if (needle && !`${m.name} ${lab}`.toLowerCase().includes(needle)) continue
-      ;(byLab.get(m.lab) ?? byLab.set(m.lab, []).get(m.lab)!).push(m)
+    () => data.models.some((m) => m.family && req.every((id) => m.values[id] !== undefined)),
+    [data, spec.x, spec.y, spec.type], // eslint-disable-line react-hooks/exhaustive-deps
+  )
+  const touched = spec.filter.include.length + spec.filter.exclude.length
+  const choose = (k: PickerKind) => {
+    setKind(k)
+    try {
+      localStorage.setItem('benchmaaark:picker', k)
+    } catch {
+      // not kept, nothing else to do
     }
-    const picked = spec.filter.labs
-    return [...byLab.entries()]
-      .filter(([lab]) => !picked.length || picked.includes(lab) || needle)
-      .map(([lab, models]) => ({
-        lab,
-        models: models.sort(order),
-        on: models.filter((m) => r.shown.has(m.id)).length,
-      }))
-      .sort((a, b) => {
-        const ia = picked.indexOf(a.lab)
-        const ib = picked.indexOf(b.lab)
-        if (ia >= 0 || ib >= 0) return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib)
-        return b.on - a.on || b.models.length - a.models.length
-      })
-  }, [r, view, sort, needle, spec.filter.labs]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const missing = req.map((id) => data.metrics.find((d) => d.id === id)?.short.es ?? id).join(' y ')
-  const touched = f.include.length + f.exclude.length
+  }
 
   return (
     <div className="space-y-4">
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="buscar modelo o laboratorio"
-        className={inputClass}
-      />
-      <div className="space-y-2">
-        <Row label="ver">
-          <Pills
-            value={view}
-            options={[
-              {
-                value: 'rec',
-                label: 'últimos',
-                hint: 'el modelo más reciente de cada línea de cada laboratorio',
-              },
-              { value: 'all', label: 'todos' },
-              { value: 'on', label: `marcados ${r.shown.size}` },
-            ]}
-            onChange={setView}
-          />
-        </Row>
-        <Row label="orden">
-          <Pills
-            value={sort}
-            options={[
-              { value: 'release', label: 'lanzamiento' },
-              { value: 'score', label: rankDef ? rankDef.short.es.toLowerCase() : 'puntuación' },
-              { value: 'name', label: 'nombre' },
-            ]}
-            onChange={setSort}
-          />
-        </Row>
+      {/* temporary: three designs to try with real data before keeping one */}
+      <div className="rounded-xl border border-dashed border-white-30 p-3">
+        <p className="mb-2 text-xs text-white-50">tres diseños para probar. dime cuál se queda.</p>
+        <div className="flex flex-wrap gap-1.5">
+          {PICKERS.map(([k, label, hint]) => (
+            <button
+              key={k}
+              onClick={() => choose(k)}
+              title={hint}
+              className={`rounded-full px-3 py-1 text-xs font-semibold ${kind === k ? 'bg-solid text-on-solid' : 'border border-white-30 text-white-80 hover:border-white'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-white-50">{PICKERS.find(([k]) => k === kind)?.[2]}.</p>
       </div>
 
       {(spec.type === 'scatter' || spec.type === 'bars' || spec.type === 'timeline') &&
@@ -817,233 +726,18 @@ function ModelsStep({
             ver cuánto cuesta cada esfuerzo usa un coste por tarea en el eje horizontal.
           </p>
         )}
-
-      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-white-50">
-        <span className="flex items-center gap-1.5">
-          <StarIcon on /> destaca: blanco puro, el resto se apaga.
-        </span>
-        {touched > 0 && (
-          <button
-            className="underline hover:text-white"
-            onClick={() => setF({ include: [], exclude: [] })}
-          >
-            volver a la selección inicial
-          </button>
-        )}
-      </p>
-
-      {groups.length === 0 && (
-        <p className="py-4 text-sm text-white-50">
-          {needle
-            ? 'nada coincide con la búsqueda.'
-            : `ningún modelo tiene ${missing || 'esos datos'}.`}
-        </p>
-      )}
-
-      <div className="space-y-5">
-        {groups.map((g) => (
-          <LabGroup
-            key={g.lab}
-            lab={g.lab}
-            name={labName.get(g.lab) ?? g.lab}
-            shape={
-              spec.options.series === 'lab' &&
-              (spec.type === 'scatter' || spec.type === 'timeline') &&
-              g.on > 0
-                ? r.shapeOf(g.lab)
-                : null
-            }
-            models={g.models}
-            on={g.on}
-            // labs with nothing on the chart start folded, so the list stays short
-            startOpen={
-              g.on > 0 || !!needle || spec.filter.labs.includes(g.lab) || groups.length <= 4
-            }
-            isShown={(m) => r.shown.has(m.id)}
-            isStarred={(m) => spec.highlight.includes(m.id)}
-            value={(m) =>
-              rankDef && m.values[rankDef.id] !== undefined
-                ? formatValue(m.values[rankDef.id], rankDef.unit)
-                : null
-            }
-            efforts={(m) =>
-              (variants.get(m.id) ?? [])
-                .filter(hasData)
-                .sort((a, b) => effortRank(a.effort) - effortRank(b.effort))
-            }
-            picked={(m) => spec.effortPick[m.id] ?? []}
-            tone={spec.options.color === 'model' ? (m) => r.tone(m) : null}
-            onToggle={toggle}
-            onStar={star}
-            onEffort={pickEffort}
-            onAll={(on) =>
-              setMany(
-                g.models.map((m) => m.id),
-                on,
-              )
-            }
-          />
-        ))}
-      </div>
-
-      {view !== 'all' && (
+      {touched > 0 && (
         <button
-          onClick={() => setView('all')}
           className="text-xs text-white-50 underline hover:text-white"
+          onClick={() => setF({ include: [], exclude: [] })}
         >
-          ver también los modelos anteriores ({candidateIds.size} con datos)
+          volver a la selección inicial
         </button>
       )}
-    </div>
-  )
-}
 
-function LabGroup(p: {
-  lab: string
-  name: string
-  shape: Shape | null
-  models: Model[]
-  on: number
-  startOpen: boolean
-  isShown: (m: Model) => boolean
-  isStarred: (m: Model) => boolean
-  value: (m: Model) => string | null
-  efforts: (m: Model) => Model[]
-  picked: (m: Model) => string[]
-  tone: ((m: Model) => number) | null
-  onToggle: (id: string) => void
-  onStar: (id: string) => void
-  onEffort: (id: string, e: string) => void
-  onAll: (on: boolean) => void
-}) {
-  const [open, setOpen] = useState<boolean | null>(null)
-  const [openEfforts, setOpenEfforts] = useState<string[]>([])
-  const isOpen = open ?? p.startOpen
-
-  return (
-    <div>
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => setOpen(!isOpen)}
-          className="flex min-w-0 flex-1 items-center gap-2 text-left"
-        >
-          <LabLogo lab={p.lab} name={p.name} className="h-5 w-5" />
-          <span className="truncate font-semibold lowercase">{p.name}</span>
-          {p.shape && <ShapeIcon shape={p.shape} />}
-          <span className="text-xs text-white-50">
-            {p.on}/{p.models.length}
-          </span>
-          <span className={`text-white-50 transition-transform ${isOpen ? 'rotate-180' : ''}`}>
-            <svg
-              width="10"
-              height="10"
-              viewBox="0 0 14 14"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-            >
-              <path d="M3 5l4 4 4-4" />
-            </svg>
-          </span>
-        </button>
-        {isOpen && (
-          <span className="flex gap-3 text-xs text-white-50">
-            <button className="hover:text-white" onClick={() => p.onAll(true)}>
-              todos
-            </button>
-            <button className="hover:text-white" onClick={() => p.onAll(false)}>
-              ninguno
-            </button>
-          </span>
-        )}
-      </div>
-      {isOpen && (
-        <div className="mt-2 space-y-1">
-          {p.models.map((m) => {
-            const on = p.isShown(m)
-            const starred = p.isStarred(m)
-            const effs = on ? p.efforts(m) : []
-            const val = p.value(m)
-            const picked = p.picked(m)
-            return (
-              <div key={m.id}>
-                <div
-                  className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 transition-colors ${on ? 'border-white-50' : 'border-transparent opacity-50 hover:opacity-80'}`}
-                >
-                  <button
-                    onClick={() => p.onToggle(m.id)}
-                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                  >
-                    <span
-                      className={`grid h-4 w-4 shrink-0 place-items-center rounded-full border ${on ? 'border-white bg-white' : 'border-white-50'}`}
-                    >
-                      {on && <span className="h-1.5 w-1.5 rounded-full bg-bg" />}
-                    </span>
-                    {on && p.tone && (
-                      <span
-                        className="h-2.5 w-2.5 shrink-0 rounded-full bg-white"
-                        style={{ opacity: p.tone(m) }}
-                        title="su opacidad en la gráfica"
-                      />
-                    )}
-                    <span className={`truncate text-sm lowercase ${starred ? 'font-bold' : ''}`}>
-                      {m.name}
-                    </span>
-                    {m.releaseDate && (
-                      <span className="shrink-0 text-[0.65rem] text-white-50">
-                        {m.releaseDate.slice(0, 7)}
-                      </span>
-                    )}
-                  </button>
-                  {effs.length > 1 && (
-                    <button
-                      onClick={() =>
-                        setOpenEfforts(
-                          openEfforts.includes(m.id)
-                            ? openEfforts.filter((x) => x !== m.id)
-                            : [...openEfforts, m.id],
-                        )
-                      }
-                      title="elegir niveles de esfuerzo"
-                      className={`shrink-0 rounded-full px-1.5 text-[0.65rem] font-semibold ${picked.length ? 'bg-white text-bg' : 'border border-white-30 text-white-50 hover:text-white'}`}
-                    >
-                      {picked.length ? `${picked.length}/${effs.length}` : `${effs.length} esf.`}
-                    </button>
-                  )}
-                  {val && (
-                    <span className="shrink-0 text-xs font-semibold text-white-80">{val}</span>
-                  )}
-                  <button
-                    onClick={() => p.onStar(m.id)}
-                    title={starred ? 'quitar destacado' : 'destacar'}
-                    className={`shrink-0 ${starred ? 'text-white' : 'text-white-30 hover:text-white'}`}
-                  >
-                    <StarIcon on={starred} />
-                  </button>
-                </div>
-                {effs.length > 1 && (openEfforts.includes(m.id) || picked.length > 0) && (
-                  <div className="mt-1 mb-2 ml-8 flex flex-wrap items-center gap-1">
-                    <span className="mr-1 text-[0.65rem] text-white-50">esfuerzo</span>
-                    {effs.map((v) => {
-                      const sel = picked.includes(v.effort!)
-                      return (
-                        <button
-                          key={v.id}
-                          onClick={() => p.onEffort(m.id, v.effort!)}
-                          className={`rounded-full px-2 py-0.5 text-[0.7rem] font-semibold ${sel ? 'bg-white text-bg' : 'border border-white-30 text-white-80 hover:border-white'}`}
-                        >
-                          {v.effort}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
+      {kind === 'lines' && <LinesPicker p={p} />}
+      {kind === 'table' && <TablePicker p={p} />}
+      {kind === 'rail' && <RailPicker p={p} />}
     </div>
   )
 }
@@ -1062,7 +756,7 @@ function Pill({
   return (
     <button
       onClick={onClick}
-      className={`rounded-full px-3 py-1 text-xs font-semibold ${on ? 'bg-white text-bg' : 'border border-white-30 text-white-80 hover:border-white'}`}
+      className={`rounded-full px-3 py-1 text-xs font-semibold ${on ? 'bg-solid text-on-solid' : 'border border-white-30 text-white-80 hover:border-white'}`}
     >
       {children}
     </button>
@@ -1074,22 +768,6 @@ function ShapeIcon({ shape, color }: { shape: Shape; color?: string }) {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" aria-label={`forma: ${shape}`}>
       <Marker shape={shape} x={7} y={7} r={4.5} color={color ?? '#ffffff'} />
-    </svg>
-  )
-}
-
-function StarIcon({ on }: { on?: boolean }) {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill={on ? 'currentColor' : 'none'}
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinejoin="round"
-    >
-      <path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z" />
     </svg>
   )
 }
