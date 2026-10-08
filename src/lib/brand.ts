@@ -5,6 +5,7 @@
 //   laaabs   laaabs.: black canvas, white on top, cyan only as a signal (the
 //            dot of the wordmark). never a cyan background.
 import aaaSvg from '../assets/aaa.svg?raw'
+import wordSvg from '../assets/aaangelmartin.svg?raw'
 import laaabsSvg from '../assets/laaabs.svg?raw'
 
 export type BrandId = 'aaa' | 'laaabs'
@@ -19,11 +20,14 @@ export interface Brand {
   id: BrandId
   name: string
   bg: string
-  signal: string // the one accent, for small marks only
+  // what data is drawn with: white on the cyan canvas, cyan on the black one
+  ink: string
   // top right of every poster
   mark: Vector
-  // bottom left of every poster: the domain, never a social handle
+  // bottom left of every poster: the domain, never a social handle. it is the
+  // drawn wordmark (which ends in its dot) followed by "com" set to match
   domain: string
+  wordmark: Vector & { baseline: number; xTop: number }
   home: string
 }
 
@@ -38,18 +42,20 @@ const BRANDS: Record<BrandId, Brand> = {
     id: 'aaa',
     name: 'aaa.',
     bg: '#00b5e2',
-    signal: '#ffffff',
+    ink: '#ffffff',
     mark: vector(aaaSvg),
     domain: 'aaangelmartin.com',
+    wordmark: { ...vector(wordSvg), baseline: 1474, xTop: 462 },
     home: 'https://aaangelmartin.com',
   },
   laaabs: {
     id: 'laaabs',
     name: 'laaabs.',
     bg: '#0a0a0a',
-    signal: '#00b5e2',
+    ink: '#00b5e2',
     mark: vector(laaabsSvg),
     domain: 'laaabs.com',
+    wordmark: { ...vector(laaabsSvg), baseline: 1452, xTop: 460 },
     home: 'https://laaabs.com',
   },
 }

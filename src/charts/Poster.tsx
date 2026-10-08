@@ -1,7 +1,7 @@
 import { forwardRef } from 'react'
 import { formatDate } from '../lib/format.ts'
 import { t } from '../lib/i18n.ts'
-import { ellipsize, measure, wrap } from '../lib/text.ts'
+import { ellipsize, glyphBox, measure, wrap } from '../lib/text.ts'
 import type { Dataset, SourceId } from '../lib/types.ts'
 import type { ChartProps } from './axes.tsx'
 import { Bars } from './Bars.tsx'
@@ -62,11 +62,19 @@ export const Poster = forwardRef<
     ? subTop + (subLines.length - 1) * subSize * 1.35 + subSize * 0.4
     : titleTop + titleSize * 0.25
 
-  // signature, bottom left: the brand's domain. sources go right
+  // signature, bottom left: the brand's domain, as its drawn wordmark (which
+  // ends in the dot) followed by "com" set to the same x-height. sources go right
+  const WM = BRAND.wordmark
   const sigH = 30 * s
-  const sigSize = sigH * 0.95
-  const sigBase = sigH * 0.78
-  const sigW = measure(BRAND.domain, sigSize, 700, -0.03)
+  const sigBase = sigH * 0.8
+  const xBand = 17 * s
+  const wmScale = xBand / (WM.baseline - WM.xTop)
+  const wmW = WM.w * wmScale
+  const probe = glyphBox('o', 100, 700)
+  const comSize = (xBand * 100) / (probe.ascent + probe.descent)
+  const com = glyphBox('com', comSize, 700)
+  const comX = pad + wmW + xBand * 0.09
+  const sigW = comX - pad + measure('com', comSize, 700, -0.03)
   const footH = sigH + 18 * s
   const footY = h - pad * 0.75 - footH
   const chartTop = headerBottom + 44 * s
@@ -126,15 +134,19 @@ export const Poster = forwardRef<
         dangerouslySetInnerHTML={{ __html: MARK.inner }}
       />
 
+      <g
+        transform={`translate(${pad} ${footY + 18 * s + sigBase - WM.baseline * wmScale}) scale(${wmScale})`}
+        dangerouslySetInnerHTML={{ __html: WM.inner }}
+      />
       <text
-        x={pad}
-        y={footY + 18 * s + sigBase}
-        fontSize={sigSize}
+        x={comX - com.left}
+        y={footY + 18 * s + sigBase - com.descent}
+        fontSize={comSize}
         fontWeight={700}
         fill={white()}
         letterSpacing="-0.03em"
       >
-        {BRAND.domain}
+        com
       </text>
       <text
         x={w - pad}

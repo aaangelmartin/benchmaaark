@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { FONT, type Shape, tint } from './theme.ts'
+import { FONT, type Shape, textTint, tint } from './theme.ts'
 
 export function Marker({ id, ...props }: MarkerProps & { id?: string }) {
   if (!id) return <Shape {...props} />
@@ -115,7 +115,7 @@ export function Label({
       fontFamily={FONT}
       fontSize={size}
       fontWeight={weight}
-      fill={tint(opacity)}
+      fill={textTint(opacity)}
       textAnchor={anchor}
       letterSpacing={tracking ? `${tracking}em` : undefined}
     >
