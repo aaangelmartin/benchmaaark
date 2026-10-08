@@ -10,6 +10,7 @@ import {
   SOURCE_ORDER,
 } from '../charts/catalogue.ts'
 import { Poster } from '../charts/Poster.tsx'
+import { BRAND } from '../lib/brand.ts'
 import { type ChartSpec, FORMATS, type FormatId } from '../charts/spec.ts'
 import { CAN_SWITCH_LANG, L, useLang } from '../lib/lang.ts'
 import type { Dataset, SourceId } from '../lib/types.ts'
@@ -78,6 +79,9 @@ export function Gallery({
   const [kind, setKind] = useState<Kind | 'all'>('all')
   const [format, setFormat] = useState<FormatId>('landscape')
   const [q, setQ] = useState('')
+  // which section is under the filter bar right now
+  const sections = useRef(new Map<string, HTMLElement>())
+  const [active, setActive] = useState('')
   const bar = useRef<HTMLDivElement>(null)
   const [barH, setBarH] = useState(110)
   useEffect(() => {
@@ -114,6 +118,28 @@ export function Gallery({
     source === 'all' && !q
       ? sources.map((s) => ({ title: sourceName(s), entries: shown.filter((e) => e.source === s) }))
       : [{ title: '', entries: shown }]
+
+  const indexed = groups.filter((g) => g.title && g.entries.length)
+  const titles = indexed.map((g) => g.title).join('|')
+  useEffect(() => {
+    const spy = () => {
+      const line = 56 + barH + 40
+      // the lowest section whose top has passed under the bar
+      let cur = ''
+      let best = -Infinity
+      for (const [title, el] of sections.current) {
+        const top = el.getBoundingClientRect().top
+        if (top <= line && top > best) {
+          best = top
+          cur = title
+        }
+      }
+      setActive(cur || (titles.split('|')[0] ?? ''))
+    }
+    spy()
+    addEventListener('scroll', spy, { passive: true })
+    return () => removeEventListener('scroll', spy)
+  }, [barH, titles])
 
   return (
     <div className="pb-12">
@@ -212,42 +238,82 @@ export function Gallery({
           {L('ninguna gráfica con esos filtros.', 'no charts match those filters.')}
         </p>
       )}
-      <div className="mx-auto max-w-7xl space-y-14 px-4 md:px-6">
-        {groups
-          .filter((g) => g.entries.length)
-          .map((g) => (
-            <section key={g.title}>
-              {g.title && (
-                // stays under the filter bar, so you always know which source you are in
-                <h2
-                  style={{ top: 56 + barH }}
-                  className="sticky z-10 -mx-2 mb-5 flex items-baseline gap-3 bg-bg px-2 py-3 text-xl font-bold tracking-[-0.03em]"
-                >
-                  {g.title}{' '}
-                  <span className="text-sm font-medium text-white-50">{g.entries.length}</span>
-                </h2>
-              )}
-              <div className={`grid gap-x-6 gap-y-8 ${cols}`}>
-                {g.entries.map((e) => (
-                  <div key={e.id}>
-                    <Card
-                      onClick={() => onOpen(e)}
-                      title={L('abrir en el editor', 'open in the editor')}
+      <div className="mx-auto flex max-w-7xl gap-10 px-4 md:px-6">
+        {/* an index of the sections down the left: the one in view is marked, and
+            a click jumps to it at once (sections are thousands of pixels apart) */}
+        {indexed.length > 1 && (
+          <nav
+            style={{ top: 56 + barH + 24 }}
+            className="sticky hidden w-36 shrink-0 self-start lg:block"
+            aria-label={L('secciones', 'sections')}
+          >
+            <ul className="space-y-0.5">
+              {indexed.map((g) => {
+                const on = g.title === active
+                return (
+                  <li key={g.title}>
+                    <button
+                      onClick={() =>
+                        sections.current.get(g.title)?.scrollIntoView({ block: 'start' })
+                      }
+                      className={`flex w-full items-baseline gap-2 py-1 text-left text-sm transition-opacity duration-300 ${on ? 'font-semibold opacity-100' : 'opacity-50 hover:opacity-80'}`}
                     >
-                      <LazyPoster data={data} spec={entrySpec(e, { format, locale })} />
-                    </Card>
-                    <p className="mt-2.5 truncate text-sm font-semibold lowercase">
-                      {e.name[locale]}
-                    </p>
-                    <p className="text-xs text-white-50 lowercase">
-                      {sourceName(e.source)},{' '}
-                      {KIND_LABEL[e.kind === 'featured' ? 'bars' : e.kind][locale]}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </section>
-          ))}
+                      {/* laaabs. marks the current item with its cyan dot, as in its nav.
+                          aaa. uses weight and opacity alone */}
+                      {BRAND.id === 'laaabs' && (
+                        <span
+                          className={`h-1 w-1 shrink-0 -translate-y-0.5 rounded-full bg-[#00b5e2] transition-opacity duration-300 ${on ? 'opacity-100' : 'opacity-0'}`}
+                        />
+                      )}
+                      <span className="min-w-0 flex-1 truncate">{g.title}</span>
+                      <span className="text-xs font-medium opacity-60">{g.entries.length}</span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </nav>
+        )}
+        <div className="min-w-0 flex-1 space-y-14">
+          {groups
+            .filter((g) => g.entries.length)
+            .map((g) => (
+              <section
+                key={g.title}
+                ref={(el) => {
+                  if (el) sections.current.set(g.title, el)
+                  else sections.current.delete(g.title)
+                }}
+                style={{ scrollMarginTop: 56 + barH + 24 }}
+              >
+                {g.title && (
+                  <h2 className="mb-5 flex items-baseline gap-3 text-xl font-bold tracking-[-0.03em]">
+                    {g.title}{' '}
+                    <span className="text-sm font-medium text-white-50">{g.entries.length}</span>
+                  </h2>
+                )}
+                <div className={`grid gap-x-6 gap-y-8 ${cols}`}>
+                  {g.entries.map((e) => (
+                    <div key={e.id}>
+                      <Card
+                        onClick={() => onOpen(e)}
+                        title={L('abrir en el editor', 'open in the editor')}
+                      >
+                        <LazyPoster data={data} spec={entrySpec(e, { format, locale })} />
+                      </Card>
+                      <p className="mt-2.5 truncate text-sm font-semibold lowercase">
+                        {e.name[locale]}
+                      </p>
+                      <p className="text-xs text-white-50 lowercase">
+                        {sourceName(e.source)},{' '}
+                        {KIND_LABEL[e.kind === 'featured' ? 'bars' : e.kind][locale]}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ))}
+        </div>
       </div>
     </div>
   )
