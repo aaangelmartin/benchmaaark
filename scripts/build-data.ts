@@ -13,6 +13,7 @@ import { looseKeys, matchKey, slugify, stripVariant } from '../src/lib/match.ts'
 import type { Dataset, MetricDef, Model, SourceId, SourceMeta } from '../src/lib/types.ts'
 import { log, RAW_DIR, ROOT, type SourceRow, warn } from './lib.ts'
 import { artificialAnalysis } from './sources/artificialanalysis.ts'
+import { cursorbench } from './sources/cursorbench.ts'
 import { epoch } from './sources/epoch.ts'
 import { lmarena } from './sources/lmarena.ts'
 import { openrouter } from './sources/openrouter.ts'
@@ -26,7 +27,7 @@ interface Manual {
 
 // sources that may introduce a model. openrouter lists hundreds of fine-tunes
 // and routers, so it only attaches prices to models someone actually measured.
-const CREATES: SourceId[] = ['epoch', 'aa', 'lmarena', 'manual']
+const CREATES: SourceId[] = ['epoch', 'cursor', 'aa', 'lmarena', 'manual']
 
 // openrouter may still introduce a model when a major lab just released it and
 // nobody has benchmarked it yet (a new haiku shows up with price and context)
@@ -60,7 +61,7 @@ function openrouterMayCreate(r: SourceRow): boolean {
 }
 
 // earlier sources win for names and release dates
-const ORDER: SourceId[] = ['epoch', 'aa', 'manual', 'lmarena', 'openrouter']
+const ORDER: SourceId[] = ['epoch', 'aa', 'cursor', 'manual', 'lmarena', 'openrouter']
 
 async function loadManual(): Promise<Manual> {
   const raw = JSON.parse(await readFile(join(ROOT, 'data', 'manual.json'), 'utf8'))
@@ -75,6 +76,7 @@ async function main() {
     [SourceId, () => Promise<{ meta: SourceMeta; metrics: MetricDef[]; rows: SourceRow[] }>]
   > = [
     ['epoch', epoch],
+    ['cursor', cursorbench],
     ['aa', artificialAnalysis],
     ['lmarena', lmarena],
     ['openrouter', openrouter],

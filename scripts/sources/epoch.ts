@@ -11,7 +11,7 @@ const ZIP_URL = 'https://epoch.ai/data/benchmark_data.zip'
 type Row = Record<string, string>
 
 // benchmarks the metadata file lists without a score column, picked by hand
-// webdev arena is left out: lmarena publishes it directly
+// webdev arena and cursorbench are left out: lmarena and cursor publish them directly
 const EXTRAS: Array<{
   benchmark: string
   file: string
@@ -20,7 +20,6 @@ const EXTRAS: Array<{
   unit?: MetricUnit
   log?: boolean
 }> = [
-  { benchmark: 'CursorBench', file: 'cursorbench_external.csv', column: 'Score' },
   { benchmark: 'CritPt', file: 'critpt_external.csv', column: 'Accuracy' },
   { benchmark: 'GDP.pdf', file: 'gdp_pdf_external.csv', column: 'GDP.pdf score' },
   { benchmark: 'SciCode', file: 'scicode_external.csv', column: 'Score' },
@@ -47,7 +46,6 @@ const EXTRAS: Array<{
 const COSTS: Record<string, string> = {
   'ARC-AGI-2': 'Cost per task',
   'ARC-AGI': 'Cost per task',
-  CursorBench: 'Cost per task',
   DeepSWE: 'Mean cost (USD)',
   FrontierSWE: 'Average cost (USD)',
   ProofBench: 'Cost per test (USD)',

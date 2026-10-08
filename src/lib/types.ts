@@ -3,7 +3,7 @@
 export type Locale = 'es' | 'en'
 export type Text = Record<Locale, string>
 
-export type SourceId = 'epoch' | 'openrouter' | 'lmarena' | 'aa' | 'manual'
+export type SourceId = 'epoch' | 'cursor' | 'openrouter' | 'lmarena' | 'aa' | 'manual'
 
 export interface SourceMeta {
   id: SourceId

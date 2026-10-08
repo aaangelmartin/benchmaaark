@@ -3,9 +3,9 @@
 
 const LABS: Array<[id: string, name: string, patterns: RegExp]> = [
   ['openai', 'OpenAI', /openai/],
-  ['anthropic', 'Anthropic', /anthropic/],
+  ['anthropic', 'Anthropic', /anthropic|claude/],
   ['google', 'Google', /google|deepmind|gemini|gemma/],
-  ['meta', 'Meta', /meta|llama/],
+  ['meta', 'Meta', /meta|llama|muse spark/],
   ['xai', 'xAI', /\bxai\b|x-ai|grok/],
   ['deepseek', 'DeepSeek', /deepseek/],
   ['alibaba', 'Alibaba', /alibaba|qwen/],
@@ -28,6 +28,7 @@ const LABS: Array<[id: string, name: string, patterns: RegExp]> = [
   ['meituan', 'Meituan', /meituan|longcat/],
   ['perplexity', 'Perplexity', /perplexity/],
   ['ibm', 'IBM', /\bibm\b|granite/],
+  ['cursor', 'Cursor', /^cursor|composer/],
   ['allenai', 'Ai2', /allen|allenai|\bai2\b|olmo/],
   ['inception', 'Inception', /inception/],
   ['salesforce', 'Salesforce', /salesforce/],
