@@ -1,9 +1,7 @@
 import { forwardRef } from 'react'
-import aaaSvg from '../assets/aaa.svg?raw'
-import wordSvg from '../assets/aaangelmartin.svg?raw'
 import { formatDate } from '../lib/format.ts'
 import { t } from '../lib/i18n.ts'
-import { ellipsize, glyphBox, wrap } from '../lib/text.ts'
+import { ellipsize, glyphBox, measure, wrap } from '../lib/text.ts'
 import type { Dataset, SourceId } from '../lib/types.ts'
 import type { ChartProps } from './axes.tsx'
 import { Bars } from './Bars.tsx'
@@ -13,20 +11,7 @@ import { autoTitle, type ChartSpec, FORMATS, requiredMetrics, resolve } from './
 import { Table } from './Table.tsx'
 import { BG, OPACITY, unit, white } from './theme.ts'
 import { Timeline } from './Timeline.tsx'
-
-const AAA = {
-  w: Number(aaaSvg.match(/viewBox="0 0 ([\d.]+)/)?.[1] ?? 346),
-  h: Number(aaaSvg.match(/viewBox="0 0 [\d.]+ ([\d.]+)/)?.[1] ?? 101),
-  inner: aaaSvg.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, ''),
-}
-
-// "aaangelmartin." from the site, one path per letter. the last path is the
-// period, which the signature leaves out, so the box ends at the final "n".
-const WORD = (() => {
-  const inner = wordSvg.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '')
-  const paths = inner.match(/<path[\s\S]*?\/>/g) ?? []
-  return { inner: paths.slice(0, -1).join(''), w: 12320, h: 1888, baseline: 1474, xTop: 462 }
-})()
+import { BRAND } from '../lib/brand.ts'
 
 const CHARTS: Record<ChartSpec['type'], (p: ChartProps) => React.ReactNode> = {
   scatter: Scatter,
@@ -63,8 +48,9 @@ export const Poster = forwardRef<
   const titleSize = 52 * s
   const subSize = 23 * s
   const logoH = 30 * s
-  const logoW = (AAA.w / AAA.h) * logoH
-  // the title wraps before the aaa. mark in the top right corner
+  const MARK = BRAND.mark
+  const logoW = (MARK.w / MARK.h) * logoH
+  // the title wraps before the brand mark in the top right corner
   const titleLines = wrap(tx(title), inner - logoW - 48 * s, titleSize, 700, -0.03).slice(0, 3)
   const subLines = subtitle
     ? wrap(tx(subtitle), Math.min(inner, 1100 * s), subSize, 500).slice(0, 3)
@@ -76,20 +62,19 @@ export const Poster = forwardRef<
     ? subTop + (subLines.length - 1) * subSize * 1.35 + subSize * 0.4
     : titleTop + titleSize * 0.25
 
-  // signature: "@" + the aaangelmartin wordmark, bottom left. sources go right
+  // signature, bottom left: the brand's domain, as its drawn wordmark (which
+  // ends in the dot) followed by "com" set to the same x-height. sources go right
+  const WM = BRAND.wordmark
   const sigH = 30 * s
-  const sigW = (WORD.w / WORD.h) * sigH
-  const sigBase = (WORD.baseline / WORD.h) * sigH
-  // the @ is centred on the x-height band of the lowercase letters and drawn a
-  // little taller than it, measured from the glyph's real ink box
-  const xTop = (WORD.xTop / WORD.h) * sigH
-  const xBand = sigBase - xTop
-  const probe = glyphBox('@', 100, 600)
-  const atSize = (xBand * 1.3 * 100) / (probe.ascent + probe.descent)
-  const at = glyphBox('@', atSize, 600)
-  const atGap = xBand * 0.08
-  const atW = at.left + at.right + atGap
-  const atY = xTop + xBand / 2 + (at.ascent - at.descent) / 2
+  const sigBase = sigH * 0.8
+  const xBand = 17 * s
+  const wmScale = xBand / (WM.baseline - WM.xTop)
+  const wmW = WM.w * wmScale
+  const probe = glyphBox('o', 100, 700)
+  const comSize = (xBand * 100) / (probe.ascent + probe.descent)
+  const com = glyphBox('com', comSize, 700)
+  const comX = pad + wmW + xBand * 0.09
+  const sigW = comX - pad + measure('com', comSize, 700, -0.03)
   const footH = sigH + 18 * s
   const footY = h - pad * 0.75 - footH
   const chartTop = headerBottom + 44 * s
@@ -145,23 +130,24 @@ export const Poster = forwardRef<
       <Chart r={r} box={chartBox} s={s} tx={tx} />
 
       <g
-        transform={`translate(${w - pad - logoW} ${pad + titleSize * 0.82 - logoH}) scale(${logoH / AAA.h})`}
-        dangerouslySetInnerHTML={{ __html: AAA.inner }}
+        transform={`translate(${w - pad - logoW} ${pad + titleSize * 0.82 - logoH}) scale(${logoH / MARK.h})`}
+        dangerouslySetInnerHTML={{ __html: MARK.inner }}
       />
 
-      <text
-        x={pad + at.left}
-        y={footY + 18 * s + atY}
-        fontSize={atSize}
-        fontWeight={600}
-        fill={white()}
-      >
-        @
-      </text>
       <g
-        transform={`translate(${pad + atW} ${footY + 18 * s}) scale(${sigH / WORD.h})`}
-        dangerouslySetInnerHTML={{ __html: WORD.inner }}
+        transform={`translate(${pad} ${footY + 18 * s + sigBase - WM.baseline * wmScale}) scale(${wmScale})`}
+        dangerouslySetInnerHTML={{ __html: WM.inner }}
       />
+      <text
+        x={comX - com.left}
+        y={footY + 18 * s + sigBase - com.descent}
+        fontSize={comSize}
+        fontWeight={700}
+        fill={white()}
+        letterSpacing="-0.03em"
+      >
+        com
+      </text>
       <text
         x={w - pad}
         y={footY + 18 * s + sigBase}
@@ -170,7 +156,7 @@ export const Poster = forwardRef<
         fill={white(OPACITY.muted)}
         textAnchor="end"
       >
-        {ellipsize(tx(sourceText), inner - sigW - atW - 60 * s, footSize, 500)}
+        {ellipsize(tx(sourceText), inner - sigW - 60 * s, footSize, 500)}
       </text>
     </svg>
   )

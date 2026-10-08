@@ -5,7 +5,7 @@ import type { MetricDef, Model } from '../lib/types.ts'
 import { type ChartProps, Empty } from './axes.tsx'
 import { Legend } from './Legend.tsx'
 import { Label } from './primitives.tsx'
-import { OPACITY, white } from './theme.ts'
+import { OPACITY, white, ink } from './theme.ts'
 
 // indices and elo cluster high above zero, so their bars start from a visible
 // baseline (printed under the chart). shares, prices and sizes start at zero.
@@ -29,7 +29,7 @@ export function Bars({ r, box: outer, s, tx }: ChartProps) {
     return <Empty box={outer} s={s} text={tx(t('noData', spec.locale))} />
   const L = spec.locale
   // only a lab legend: models are always named on their own row
-  const legendH = spec.options.color === 'lab' && r.toneLegend.length ? 40 * s : 0
+  const legendH = spec.options.color === 'lab' && r.toneLegend.length > 1 ? 40 * s : 0
   const box = { ...outer, y: outer.y + legendH, h: outer.h - legendH }
   const models = sortModels(r.models, Y, spec.options.sort)
   const values = models.map((m) => m.values[Y.id])
@@ -124,7 +124,7 @@ export function Bars({ r, box: outer, s, tx }: ChartProps) {
               width={bx(v) - x0}
               height={thick}
               rx={thick / 2}
-              fill={white(op)}
+              fill={ink(op)}
             />
             <Label x={bx(v) + 12 * s} y={cy} size={nameSize} weight={700} opacity={hl ? 1 : 0.85}>
               {formatValue(v, Y.unit)}

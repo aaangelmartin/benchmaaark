@@ -1,57 +1,76 @@
-// the chart editor, as four steps you open one at a time:
-//   1. qué gráfica   type and metrics
-//   2. laboratorios  which labs, by logo
-//   3. modelos       which models of each lab, their efforts, and highlights
-//   4. aspecto       format, language, text and style
-// everything is picked by clicking, nothing needs typing except the title.
-import { type ReactNode, useMemo, useState } from 'react'
+// the chart editor, five steps opened one at a time:
+//   1. gráfica y fuente   what kind of chart, from which source, which metric
+//   2. laboratorios       every lab, by logo
+//   3. modelos            plain lists grouped by lab: toggle, star, efforts
+//   4. aspecto            format, text and style
+//   5. exportar           png, copy, svg, csv, every format
+import { type ReactNode, useMemo, useState, useEffect, useRef } from 'react'
+import { SOURCE_ORDER } from '../charts/catalogue.ts'
 import { Marker } from '../charts/primitives.tsx'
 import {
   type ChartSpec,
   type ChartType,
   FORMATS,
   type FormatId,
-  requiredMetrics,
+  type Resolved,
   resolve,
 } from '../charts/spec.ts'
 import type { Shape } from '../charts/theme.ts'
-import { effortRank } from '../lib/effort.ts'
-import { formatValue } from '../lib/format.ts'
-import type { Dataset, MetricCategory, MetricDef, Model } from '../lib/types.ts'
+import { getLang, L } from '../lib/lang.ts'
+import type { Dataset, MetricDef, SourceId } from '../lib/types.ts'
 import { LabLogo } from './LabLogo.tsx'
+import { LinesPicker, usePicker } from './ModelPickers.tsx'
 import { Field, inputClass, Pills, Toggle } from './ui.tsx'
 
-const CATEGORIES: Array<[MetricCategory, string]> = [
-  ['intelligence', 'inteligencia'],
-  ['benchmark', 'benchmarks'],
-  ['arena', 'arena'],
-  ['cost', 'coste'],
-  ['speed', 'velocidad'],
-  ['context', 'contexto'],
+const CYAN = '#00b5e2'
+
+// built per render so the labels follow the language
+const types = (): Array<{ value: ChartType; label: string; hint: string }> => [
+  { value: 'bars', label: 'ranking', hint: L('quién va primero', 'who comes first') },
+  {
+    value: 'scatter',
+    label: L('dispersión', 'scatter'),
+    hint: L('dos métricas cruzadas', 'two metrics against each other'),
+  },
+  {
+    value: 'timeline',
+    label: L('evolución', 'over time'),
+    hint: L('cómo avanza en el tiempo', 'how it moves over time'),
+  },
+  {
+    value: 'table',
+    label: L('tabla', 'table'),
+    hint: L('resumen con números', 'summary in numbers'),
+  },
+  {
+    value: 'compare',
+    label: L('comparativa', 'comparison'),
+    hint: L('pocos modelos, varias métricas', 'a few models, several metrics'),
+  },
 ]
 
-const TYPES: Array<{ value: ChartType; label: string; hint: string }> = [
-  { value: 'scatter', label: 'dispersión', hint: 'dos métricas cruzadas' },
-  { value: 'bars', label: 'ranking', hint: 'quién va primero' },
-  { value: 'timeline', label: 'evolución', hint: 'cómo avanza en el tiempo' },
-  { value: 'compare', label: 'comparativa', hint: 'pocos modelos, muchas métricas' },
-  { value: 'table', label: 'tabla', hint: 'resumen con números' },
-]
-
-type Step = 1 | 2 | 3 | 4
+export type Step = 1 | 2 | 3 | 4 | 5
 
 export function Editor({
   data,
   spec,
   onChange,
   exportPanel,
+  step,
+  onStep,
+  done,
+  onDone,
 }: {
   data: Dataset
   spec: ChartSpec
   onChange: (s: ChartSpec) => void
   exportPanel: ReactNode
+  step: Step | null
+  onStep: (s: Step | null) => void
+  // steps already gone through: they show a tick instead of their number
+  done: Step[]
+  onDone: (s: Step) => void
 }) {
-  const [open, setOpen] = useState<Step | null>(3)
   const r = useMemo(() => resolve(data, spec), [data, spec])
   const metricById = useMemo(() => new Map(data.metrics.map((m) => [m.id, m])), [data])
   const labName = useMemo(() => new Map(data.labs.map((l) => [l.id, l.name])), [data])
@@ -60,39 +79,42 @@ export function Editor({
     onChange({ ...spec, filter: { ...spec.filter, ...patch } })
   const setO = (patch: Partial<ChartSpec['options']>) =>
     onChange({ ...spec, options: { ...spec.options, ...patch } })
-  const L = spec.locale
-  const short = (id: string) => metricById.get(id)?.short.es ?? id
+  const loc = spec.locale
+  const TYPES = types()
+  const short = (id: string) => metricById.get(id)?.short[getLang()] ?? id
+  const multi = spec.type === 'compare' || spec.type === 'table'
+  const toggle = (s: Step) => onStep(step === s ? null : s)
 
   const metricSummary =
     spec.type === 'scatter'
-      ? `${short(spec.y)} frente a ${short(spec.x)}`
-      : spec.type === 'compare' || spec.type === 'table'
+      ? `${short(spec.y)} vs ${short(spec.x)}`
+      : multi
         ? spec.metrics.map(short).join(', ')
         : short(spec.y)
   const labSummary = spec.filter.labs.length
     ? spec.filter.labs.map((l) => labName.get(l) ?? l).join(', ')
-    : 'todos'
+    : L('todos', 'all')
 
   return (
-    <div className="pb-24">
-      <div className="sticky top-0 z-10 border-b border-white-20 bg-bg px-5 py-4">
-        {exportPanel}
-      </div>
-
+    <div>
       <StepBox
         n={1}
-        title="qué gráfica"
+        title={L('gráfica y fuente', 'chart and source')}
         summary={`${TYPES.find((t) => t.value === spec.type)?.label}: ${metricSummary}`}
-        open={open === 1}
-        onToggle={() => setOpen(open === 1 ? null : 1)}
-        onNext={() => setOpen(2)}
+        open={step === 1}
+        onToggle={() => toggle(1)}
+        done={done.includes(1)}
+        onNext={() => {
+          onDone(1)
+          onStep(2)
+        }}
       >
         <div className="grid grid-cols-2 gap-2">
           {TYPES.map((t) => (
             <button
               key={t.value}
               onClick={() => set({ type: t.value })}
-              className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-colors ${spec.type === t.value ? 'border-white bg-white text-bg' : 'border-white-30 hover:border-white'}`}
+              className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-colors ${spec.type === t.value ? 'border-solid-line bg-solid text-on-solid' : 'border-white-30 hover:border-white'}`}
             >
               <TypeIcon type={t.value} />
               <span>
@@ -111,34 +133,80 @@ export function Editor({
 
       <StepBox
         n={2}
-        title="laboratorios"
+        title={L('laboratorios', 'labs')}
         summary={labSummary}
-        open={open === 2}
-        onToggle={() => setOpen(open === 2 ? null : 2)}
-        onNext={() => setOpen(3)}
+        open={step === 2}
+        onToggle={() => toggle(2)}
+        done={done.includes(2)}
+        onNext={() => {
+          onDone(2)
+          onStep(3)
+        }}
       >
         <LabsStep data={data} spec={spec} r={r} onChange={(labs) => setF({ labs })} />
       </StepBox>
 
       <StepBox
         n={3}
-        title="modelos"
-        summary={`${r.shown.size} en la gráfica${spec.highlight.length ? `, ${spec.highlight.length} destacados` : ''}`}
-        open={open === 3}
-        onToggle={() => setOpen(open === 3 ? null : 3)}
-        onNext={() => setOpen(4)}
+        title={L('modelos', 'models')}
+        summary={`${r.shown.size} ${L('en la gráfica', 'on the chart')}${spec.highlight.length ? `, ${spec.highlight.length} ${L('destacados', 'highlighted')}` : ''}`}
+        open={step === 3}
+        onToggle={() => toggle(3)}
+        done={done.includes(3)}
+        onNext={() => {
+          onDone(3)
+          onStep(4)
+        }}
       >
-        <ModelsStep data={data} spec={spec} r={r} onChange={onChange} setF={setF} setO={setO} />
+        <ModelsStep data={data} spec={spec} r={r} onChange={onChange} setF={setF} />
       </StepBox>
 
       <StepBox
         n={4}
-        title="aspecto"
-        summary={`${FORMATS[spec.format].label}, ${spec.locale}`}
-        open={open === 4}
-        onToggle={() => setOpen(open === 4 ? null : 4)}
+        title={L('aspecto', 'look')}
+        summary={`${FORMATS[spec.format].label}, ${FORMATS[spec.format].hint}`}
+        open={step === 4}
+        onToggle={() => toggle(4)}
+        // finishing the look leads to the way out: export
+        done={done.includes(4)}
+        onNext={() => {
+          onDone(4)
+          onStep(5)
+        }}
+        last
       >
-        <Field label="formato">
+        {/* what is drawn on the chart comes first, where it is easy to find */}
+        {(spec.type === 'scatter' || spec.type === 'timeline') && (
+          <Group title={L('líneas y ejes', 'lines and axes')}>
+            {(spec.type === 'scatter' || spec.type === 'timeline') && (
+              <Toggle
+                label={
+                  spec.type === 'scatter'
+                    ? L('línea de frontera de pareto', 'pareto frontier line')
+                    : L('línea de récords', 'record line')
+                }
+                checked={spec.options.frontier}
+                onChange={(v) => setO({ frontier: v })}
+              />
+            )}
+            {spec.type === 'scatter' && (
+              <Toggle
+                label={L('eje horizontal logarítmico', 'logarithmic horizontal axis')}
+                checked={spec.options.logX}
+                onChange={(v) => setO({ logX: v })}
+              />
+            )}
+            {(spec.type === 'scatter' || spec.type === 'timeline') && (
+              <Toggle
+                label={L('eje vertical logarítmico', 'logarithmic vertical axis')}
+                checked={spec.options.logY}
+                onChange={(v) => setO({ logY: v })}
+              />
+            )}
+          </Group>
+        )}
+
+        <Group title={L('formato', 'format')}>
           <div className="grid grid-cols-5 gap-2">
             {(Object.keys(FORMATS) as FormatId[]).map((f) => {
               const { w, h, label, hint } = FORMATS[f]
@@ -168,119 +236,104 @@ export function Editor({
               )
             })}
           </div>
-          <p className="mt-1 text-xs text-white-50">{FORMATS[spec.format].hint}</p>
-        </Field>
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-white-80">idioma</span>
-          <Pills
-            value={spec.locale}
-            options={[
-              { value: 'es', label: 'español' },
-              { value: 'en', label: 'english' },
-            ]}
-            onChange={(v) => set({ locale: v })}
-          />
-        </div>
-        <Field label="título">
-          <input
-            className={inputClass}
-            value={spec.title?.[L] ?? ''}
-            placeholder="automático"
-            onChange={(e) => setText(spec, onChange, 'title', e.target.value)}
-          />
-        </Field>
-        <Field label="subtítulo">
-          <textarea
-            className={`${inputClass} min-h-16 resize-y`}
-            value={spec.subtitle?.[L] ?? ''}
-            placeholder="opcional"
-            onChange={(e) => setText(spec, onChange, 'subtitle', e.target.value)}
-          />
-        </Field>
+          <p className="text-xs text-white-50">{FORMATS[spec.format].hint}</p>
+        </Group>
 
-        {(spec.type === 'scatter' || spec.type === 'timeline') && (
-          <>
-            <Field label="forma de los puntos">
+        <Group title={L('texto', 'text')}>
+          <Field label={L('título', 'title')}>
+            <input
+              className={inputClass}
+              value={spec.title?.[loc] ?? ''}
+              placeholder={L('automático', 'automatic')}
+              onChange={(e) => setText(spec, onChange, 'title', e.target.value)}
+            />
+          </Field>
+          <Field label={L('subtítulo', 'subtitle')}>
+            <textarea
+              className={`${inputClass} min-h-16 resize-y`}
+              value={spec.subtitle?.[loc] ?? ''}
+              placeholder={L('opcional', 'optional')}
+              onChange={(e) => setText(spec, onChange, 'subtitle', e.target.value)}
+            />
+          </Field>
+          <Toggle
+            label={L('todo en minúsculas', 'all lowercase')}
+            checked={spec.options.lowercase}
+            onChange={(v) => setO({ lowercase: v })}
+          />
+        </Group>
+
+        <Group title={L('estilo', 'style')}>
+          {(spec.type === 'scatter' || spec.type === 'timeline') && (
+            <Field label={L('forma de los puntos', 'point shape')}>
               <Pills
                 value={spec.options.series}
                 options={[
-                  { value: 'lab', label: 'una por laboratorio' },
-                  { value: 'weights', label: 'abiertos / cerrados' },
-                  { value: 'none', label: 'todas iguales' },
+                  { value: 'lab', label: L('una por laboratorio', 'one per lab') },
+                  { value: 'weights', label: L('abiertos / cerrados', 'open / closed') },
+                  { value: 'none', label: L('todas iguales', 'all the same') },
                 ]}
                 onChange={(v) => setO({ series: v })}
               />
             </Field>
-            <Field label="etiquetas">
+          )}
+          {!multi && (
+            <Field label={L('opacidad', 'opacity')}>
+              <Pills
+                value={spec.options.color}
+                options={[
+                  { value: 'model', label: L('una por modelo', 'one per model') },
+                  { value: 'lab', label: L('una por laboratorio', 'one per lab') },
+                  { value: 'none', label: L('sin variar', 'no variation') },
+                ]}
+                onChange={(v) => setO({ color: v })}
+              />
+            </Field>
+          )}
+          {(spec.type === 'scatter' || spec.type === 'timeline') && (
+            <Field label={L('etiquetas', 'labels')}>
               <Pills
                 value={spec.options.labels}
                 options={[
-                  { value: 'auto', label: 'las que caben' },
-                  { value: 'all', label: 'todas' },
-                  { value: 'highlight', label: 'solo destacados' },
-                  { value: 'none', label: 'ninguna' },
+                  { value: 'auto', label: L('las que caben', 'the ones that fit') },
+                  { value: 'all', label: L('todas', 'all') },
+                  { value: 'highlight', label: L('solo destacados', 'highlighted only') },
+                  { value: 'none', label: L('ninguna', 'none') },
                 ]}
                 onChange={(v) => setO({ labels: v })}
               />
             </Field>
+          )}
+          {spec.type === 'bars' && (
+            <Field label={L('orden', 'order')}>
+              <Pills
+                value={spec.options.sort}
+                options={[
+                  { value: 'best', label: L('mejor arriba', 'best on top') },
+                  { value: 'worst', label: L('peor arriba', 'worst on top') },
+                ]}
+                onChange={(v) => setO({ sort: v })}
+              />
+            </Field>
+          )}
+          {(spec.type === 'bars' || spec.type === 'table') && (
             <Toggle
-              label={spec.type === 'scatter' ? 'línea de frontera de pareto' : 'línea de récords'}
-              checked={spec.options.frontier}
-              onChange={(v) => setO({ frontier: v })}
+              label={L('laboratorio bajo cada modelo', 'lab under each model')}
+              checked={spec.options.showLab}
+              onChange={(v) => setO({ showLab: v })}
             />
-          </>
-        )}
-        {spec.type !== 'compare' && spec.type !== 'table' && (
-          <Field label="opacidad">
-            <Pills
-              value={spec.options.color}
-              options={[
-                { value: 'model', label: 'una por modelo' },
-                { value: 'lab', label: 'una por laboratorio' },
-                { value: 'none', label: 'sin variar' },
-              ]}
-              onChange={(v) => setO({ color: v })}
-            />
-          </Field>
-        )}
-        {spec.type === 'scatter' && (
-          <Toggle
-            label="eje x en escala logarítmica"
-            checked={spec.options.logX}
-            onChange={(v) => setO({ logX: v })}
-          />
-        )}
-        {(spec.type === 'scatter' || spec.type === 'timeline') && (
-          <Toggle
-            label="eje y en escala logarítmica"
-            checked={spec.options.logY}
-            onChange={(v) => setO({ logY: v })}
-          />
-        )}
-        {spec.type === 'bars' && (
-          <Field label="orden">
-            <Pills
-              value={spec.options.sort}
-              options={[
-                { value: 'best', label: 'mejor arriba' },
-                { value: 'worst', label: 'peor arriba' },
-              ]}
-              onChange={(v) => setO({ sort: v })}
-            />
-          </Field>
-        )}
-        {(spec.type === 'bars' || spec.type === 'table') && (
-          <Toggle
-            label="nombre del laboratorio bajo cada modelo"
-            checked={spec.options.showLab}
-            onChange={(v) => setO({ showLab: v })}
-          />
-        )}
-        <Toggle
-          label="todo en minúsculas (marca)"
-          checked={spec.options.lowercase}
-          onChange={(v) => setO({ lowercase: v })}
-        />
+          )}
+        </Group>
+      </StepBox>
+
+      <StepBox
+        n={5}
+        title={L('exportar', 'export')}
+        summary={L('png, copiar, svg, csv, zip', 'png, copy, svg, csv, zip')}
+        open={step === 5}
+        onToggle={() => toggle(5)}
+      >
+        {exportPanel}
       </StepBox>
     </div>
   )
@@ -297,6 +350,15 @@ function setText(
   onChange({ ...spec, [k]: next.es || next.en ? next : null })
 }
 
+function Group({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="space-y-3 border-t border-white-20 pt-4 first:border-t-0 first:pt-0">
+      <h4 className="text-xs font-semibold tracking-widest text-white-50">{title}</h4>
+      {children}
+    </div>
+  )
+}
+
 function StepBox({
   n,
   title,
@@ -304,6 +366,8 @@ function StepBox({
   open,
   onToggle,
   onNext,
+  last,
+  done,
   children,
 }: {
   n: number
@@ -312,15 +376,51 @@ function StepBox({
   open: boolean
   onToggle: () => void
   onNext?: () => void
+  last?: boolean
+  done?: boolean
   children: ReactNode
 }) {
+  // when a step opens, the sidebar is not left half scrolled from the previous one
+  const ref = useRef<HTMLElement>(null)
+  const first = useRef(true)
+  useEffect(() => {
+    if (first.current) {
+      first.current = false
+      return
+    }
+    const el = ref.current
+    const side = el?.closest('aside')
+    if (!open || !el || !side) return
+    // back to the top when the step's header still shows from there, so the
+    // earlier steps and their ticks stay in view; otherwise down to the step
+    if (el.offsetTop + 160 < side.clientHeight) side.scrollTo({ top: 0, behavior: 'smooth' })
+    else el.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  }, [open])
+
   return (
-    <section className="border-b border-white-20">
+    <section ref={ref} className="border-b border-white-20 last:border-b-0">
       <button onClick={onToggle} className="flex w-full items-center gap-3 px-5 py-4 text-left">
+        {/* done: filled with a tick. current: a strong ring. still to do: faint */}
         <span
-          className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-bold ${open ? 'bg-white text-bg' : 'border border-white-50'}`}
+          className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-bold transition-colors duration-300 ${done ? 'bg-solid text-on-solid' : open ? 'border-2 border-white' : 'border border-white-30 text-white-50'}`}
         >
-          {n}
+          {done ? (
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 14 14"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-label={L('hecho', 'done')}
+            >
+              <path d="M2.5 7.5l3 3 6-6.5" />
+            </svg>
+          ) : (
+            n
+          )}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block font-semibold">{title}</span>
@@ -350,9 +450,9 @@ function StepBox({
           {onNext && (
             <button
               onClick={onNext}
-              className="w-full rounded-full border border-white-30 py-2 text-sm font-semibold text-white-80 hover:border-white hover:text-white"
+              className={`w-full rounded-full py-2 text-sm font-semibold ${last ? 'bg-solid text-on-solid' : 'border border-white-30 text-white-80 hover:border-white hover:text-white'}`}
             >
-              siguiente
+              {last ? L('terminar', 'finish') : L('siguiente', 'next')}
             </button>
           )}
         </div>
@@ -361,7 +461,7 @@ function StepBox({
   )
 }
 
-// ---- 1. metrics -------------------------------------------------------------
+// ---- 1. source and metric ----------------------------------------------------
 
 function MetricChooser({
   data,
@@ -374,19 +474,17 @@ function MetricChooser({
 }) {
   const multi = spec.type === 'compare' || spec.type === 'table'
   const [slot, setSlot] = useState<'y' | 'x'>('y')
-  const active = multi ? null : spec.type === 'scatter' ? spec[slot] : spec.y
-  const firstCat =
-    data.metrics.find((m) => m.id === (active ?? spec.metrics[0]))?.category ?? 'intelligence'
-  const [cat, setCat] = useState<MetricCategory>(firstCat)
+  const byId = useMemo(() => new Map(data.metrics.map((m) => [m.id, m])), [data])
+  const active = multi ? spec.metrics[0] : spec.type === 'scatter' ? spec[slot] : spec.y
+  const [source, setSource] = useState<SourceId>(byId.get(active)?.source ?? 'cursor')
   const [more, setMore] = useState(false)
-  // list prices per token say nothing about what a run costs, so they are never
-  // offered: cost is always the cost per task of a benchmark
-  const usable = data.metrics.filter((m) => m.unit !== 'usd_per_mtok')
-  const list = usable
-    .filter((m) => m.category === cat)
+  const sources = SOURCE_ORDER.filter((s) => data.metrics.some((m) => m.source === s))
+  const sourceName = (id: SourceId) =>
+    data.sources.find((s) => s.id === id)?.name.toLowerCase() ?? id
+  const list = data.metrics
+    .filter((m) => m.source === source)
     .sort((a, b) => (b.count ?? 0) - (a.count ?? 0))
   const shown = more ? list : list.slice(0, 12)
-  const byId = new Map(data.metrics.map((m) => [m.id, m]))
 
   const pick = (m: MetricDef) => {
     if (multi) {
@@ -394,22 +492,26 @@ function MetricChooser({
       onChange({
         ...spec,
         metrics: has ? spec.metrics.filter((x) => x !== m.id) : [...spec.metrics, m.id],
+        title: null,
+        subtitle: null,
       })
     } else if (spec.type === 'scatter') {
       // a benchmark with a cost per task brings its cost to the other axis
       const cost = slot === 'y' ? byId.get(`${m.id}-cost`) : undefined
-      if (cost) {
-        onChange({
+      if (cost)
+        return onChange({
           ...spec,
           y: m.id,
           x: cost.id,
+          title: null,
+          subtitle: null,
           options: { ...spec.options, logX: true, logY: false },
         })
-        return
-      }
       onChange({
         ...spec,
         [slot]: m.id,
+        title: null,
+        subtitle: null,
         options: { ...spec.options, ...(slot === 'x' ? { logX: !!m.log } : { logY: false }) },
       })
       if (slot === 'y') setSlot('x')
@@ -417,6 +519,8 @@ function MetricChooser({
       onChange({
         ...spec,
         y: m.id,
+        title: null,
+        subtitle: null,
         options: { ...spec.options, logY: spec.type === 'timeline' && !!m.log },
       })
   }
@@ -429,14 +533,20 @@ function MetricChooser({
           {(['y', 'x'] as const).map((k) => (
             <button
               key={k}
-              onClick={() => setSlot(k)}
+              onClick={() => {
+                setSlot(k)
+                const src = byId.get(spec[k])?.source
+                if (src) setSource(src)
+              }}
               className={`rounded-xl border p-2.5 text-left ${slot === k ? 'border-white' : 'border-white-20'}`}
             >
               <span className="block text-[0.65rem] tracking-widest text-white-50">
-                {k === 'y' ? 'eje vertical' : 'eje horizontal'}
+                {k === 'y'
+                  ? L('eje vertical', 'vertical axis')
+                  : L('eje horizontal', 'horizontal axis')}
               </span>
               <span className="block truncate text-sm font-semibold lowercase">
-                {byId.get(spec[k])?.short.es ?? spec[k]}
+                {byId.get(spec[k])?.short[getLang()] ?? spec[k]}
               </span>
             </button>
           ))}
@@ -444,45 +554,67 @@ function MetricChooser({
       )}
       {multi && (
         <p className="text-xs text-white-50">
-          marca las métricas en el orden en que quieres verlas. elegidas:{' '}
+          {L('columnas, en el orden en que las marcas:', 'columns, in the order you pick them:')}{' '}
           <span className="text-white-80 lowercase">
-            {spec.metrics.map((id) => byId.get(id)?.short.es ?? id).join(', ') || 'ninguna'}
+            {spec.metrics.map((id) => byId.get(id)?.short[getLang()] ?? id).join(', ') ||
+              L('ninguna', 'none')}
           </span>
         </p>
       )}
-      <div className="flex flex-wrap gap-1.5">
-        {CATEGORIES.filter(([c]) => usable.some((m) => m.category === c)).map(([c, label]) => (
-          <button
-            key={c}
-            onClick={() => {
-              setCat(c)
-              setMore(false)
-            }}
-            className={`rounded-full px-3 py-1 text-xs font-semibold ${cat === c ? 'bg-white text-bg' : 'text-white-50 hover:text-white'}`}
-          >
-            {label}
-          </button>
-        ))}
+
+      <div>
+        <p className="mb-1.5 text-xs tracking-widest text-white-50">{L('fuente', 'source')}</p>
+        <div className="flex flex-wrap gap-1.5">
+          {sources.map((s) => (
+            <button
+              key={s}
+              onClick={() => {
+                setSource(s)
+                setMore(false)
+              }}
+              className={`rounded-full px-3 py-1 text-xs font-semibold ${source === s ? 'bg-solid text-on-solid' : 'border border-white-30 text-white-80 hover:border-white'}`}
+            >
+              {sourceName(s)}
+            </button>
+          ))}
+        </div>
       </div>
-      <div className="grid grid-cols-2 gap-1.5">
-        {shown.map((m) => (
+
+      <div>
+        <p className="mb-1.5 text-xs tracking-widest text-white-50">{L('métrica', 'metric')}</p>
+        <div className="grid grid-cols-2 gap-1.5">
+          {shown.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => pick(m)}
+              title={m.label[getLang()] + (m.description ? `. ${m.description[getLang()]}` : '')}
+              className={`flex items-baseline justify-between gap-2 rounded-full border px-3 py-1 text-left text-xs font-semibold transition-colors ${isOn(m) ? 'border-solid-line bg-solid text-on-solid' : 'border-white-30 text-white-80 hover:border-white'}`}
+            >
+              <span className="truncate lowercase">{m.short[getLang()]}</span>
+              <span className="font-medium opacity-60">{m.count}</span>
+            </button>
+          ))}
+        </div>
+        {list.length > 12 && (
           <button
-            key={m.id}
-            onClick={() => pick(m)}
-            title={m.label.es + (m.description ? `. ${m.description.es}` : '')}
-            className={`flex items-baseline justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors ${isOn(m) ? 'border-white bg-white text-bg' : 'border-white-20 hover:border-white-50'}`}
+            onClick={() => setMore(!more)}
+            className="mt-2 text-xs text-white-50 hover:text-white"
           >
-            <span className="truncate font-semibold lowercase">{m.short.es}</span>
-            <span className={isOn(m) ? 'opacity-60' : 'text-white-50'}>{m.count}</span>
+            {more
+              ? L('ver menos', 'show less')
+              : L(
+                  `ver las ${list.length} métricas de ${sourceName(source)}`,
+                  `show all ${list.length} metrics from ${sourceName(source)}`,
+                )}
           </button>
-        ))}
+        )}
+        <p className="mt-2 text-xs text-white-50">
+          {L(
+            'el número es cuántos modelos tienen ese dato.',
+            'the number is how many models have that value.',
+          )}
+        </p>
       </div>
-      {list.length > 12 && (
-        <button onClick={() => setMore(!more)} className="text-xs text-white-50 hover:text-white">
-          {more ? 'ver menos' : `ver las ${list.length} de esta categoría`}
-        </button>
-      )}
-      <p className="text-xs text-white-50">el número es cuántos modelos tienen ese dato.</p>
     </div>
   )
 }
@@ -497,78 +629,113 @@ function LabsStep({
 }: {
   data: Dataset
   spec: ChartSpec
-  r: ReturnType<typeof resolve>
+  r: Resolved
   onChange: (labs: string[]) => void
 }) {
-  const [all, setAll] = useState(false)
+  const [q, setQ] = useState('')
   const counts = new Map<string, number>()
   for (const m of r.candidates) counts.set(m.lab, (counts.get(m.lab) ?? 0) + 1)
   const labs = data.labs
-    .filter((l) => l.id !== 'other' && (counts.get(l.id) ?? 0) > 0)
-    .sort((a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0))
-  const shown = all ? labs : labs.slice(0, 15)
+    .filter((l) => l.id !== 'other' && (!q || l.name.toLowerCase().includes(q.toLowerCase())))
+    .sort(
+      (a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0) || a.name.localeCompare(b.name),
+    )
   const sel = spec.filter.labs
   const toggle = (id: string) =>
     onChange(sel.includes(id) ? sel.filter((l) => l !== id) : [...sel, id])
+  const preset = (ids: string[]) => onChange(ids.filter((l) => counts.has(l)))
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         <Pill on={sel.length === 0} onClick={() => onChange([])}>
-          todos
+          {L('todos', 'all')}
+        </Pill>
+        <Pill on={false} onClick={() => preset(['openai', 'anthropic', 'google', 'xai', 'meta'])}>
+          {L('grandes', 'big labs')}
         </Pill>
         <Pill
           on={false}
           onClick={() =>
-            onChange(
-              ['openai', 'anthropic', 'google', 'xai', 'deepseek'].filter((l) => counts.has(l)),
-            )
-          }
-        >
-          los 5 grandes
-        </Pill>
-        <Pill
-          on={false}
-          onClick={() =>
-            onChange(
-              ['deepseek', 'alibaba', 'moonshot', 'zai', 'minimax'].filter((l) => counts.has(l)),
-            )
+            preset([
+              'deepseek',
+              'alibaba',
+              'moonshot',
+              'zai',
+              'minimax',
+              'bytedance',
+              'tencent',
+              'baidu',
+              'xiaomi',
+              'stepfun',
+            ])
           }
         >
           china
         </Pill>
+        <Pill
+          on={false}
+          onClick={() =>
+            preset([
+              'meta',
+              'deepseek',
+              'alibaba',
+              'mistral',
+              'google',
+              'microsoft',
+              'nvidia',
+              'zai',
+              'moonshot',
+            ])
+          }
+        >
+          {L('abiertos', 'open weights')}
+        </Pill>
       </div>
-      <div className="grid grid-cols-3 gap-2">
-        {shown.map((l) => {
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder={L(
+          `buscar entre ${data.labs.length - 1} laboratorios`,
+          `search ${data.labs.length - 1} labs`,
+        )}
+        className={inputClass}
+      />
+      <div className="scrollbar-thin grid max-h-[26rem] grid-cols-3 gap-2 overflow-y-auto pr-1">
+        {labs.map((l) => {
           const on = sel.includes(l.id)
+          const n = counts.get(l.id) ?? 0
           return (
             <button
               key={l.id}
               onClick={() => toggle(l.id)}
-              className={`relative flex flex-col items-center gap-1.5 rounded-xl border px-1 py-3 transition-colors ${on ? 'border-white bg-white text-bg' : 'border-white-20 hover:border-white-50'}`}
+              className={`relative flex flex-col items-center gap-1.5 rounded-xl border px-1 py-3 transition-colors ${on ? 'border-solid-line bg-solid text-on-solid' : n ? 'border-white-20 hover:border-white-50' : 'border-white-10 opacity-45 hover:opacity-80'}`}
             >
-              {on && spec.options.series === 'lab' && (
-                <span className="absolute top-1.5 right-1.5">
-                  <ShapeIcon shape={r.shapeOf(l.id)} dark />
-                </span>
-              )}
+              {on &&
+                spec.options.series === 'lab' &&
+                (spec.type === 'scatter' || spec.type === 'timeline') && (
+                  <span
+                    className="absolute top-1.5 right-1.5"
+                    title={L('su forma en la gráfica', 'its shape on the chart')}
+                  >
+                    <ShapeIcon shape={r.shapeOf(l.id)} color={CYAN} />
+                  </span>
+                )}
               <LabLogo lab={l.id} name={l.name} className="h-6 w-6" />
               <span className="w-full truncate text-center text-xs font-semibold lowercase">
                 {l.name}
               </span>
               <span className={`text-[0.65rem] ${on ? 'opacity-60' : 'text-white-50'}`}>
-                {counts.get(l.id)} modelos
+                {n ? `${n} ${L('modelos', 'models')}` : L('sin datos', 'no data')}
               </span>
             </button>
           )
         })}
       </div>
-      {labs.length > 15 && (
-        <button onClick={() => setAll(!all)} className="text-xs text-white-50 hover:text-white">
-          {all ? 'ver menos' : `ver los ${labs.length} laboratorios`}
-        </button>
-      )}
       <p className="text-xs text-white-50">
-        sin ninguno marcado entran todos. en la gráfica, cada laboratorio tiene su forma.
+        {L(
+          'sin ninguno marcado entran todos. "sin datos" significa que ese laboratorio no tiene la métrica elegida.',
+          'with none picked, all labs are in. "no data" means that lab does not have the chosen metric.',
+        )}
       </p>
     </div>
   )
@@ -582,353 +749,37 @@ function ModelsStep({
   r,
   onChange,
   setF,
-  setO,
 }: {
   data: Dataset
   spec: ChartSpec
-  r: ReturnType<typeof resolve>
+  r: Resolved
   onChange: (s: ChartSpec) => void
   setF: (p: Partial<ChartSpec['filter']>) => void
-  setO: (p: Partial<ChartSpec['options']>) => void
 }) {
-  const labName = new Map(data.labs.map((l) => [l.id, l.name]))
-  const req = requiredMetrics(spec)
-  const rankId =
-    spec.filter.rankBy ??
-    (spec.type === 'compare' || spec.type === 'table' ? spec.metrics[0] : spec.y)
-  const rankDef = data.metrics.find((m) => m.id === rankId)
-  const candidateIds = new Set(r.candidates.map((m) => m.id))
-
-  // labs to list: the picked ones, else the ones on the chart
-  const labs = spec.filter.labs.length ? spec.filter.labs : r.labsShown
-  const variants = useMemo(() => {
-    const out = new Map<string, Model[]>()
-    for (const m of data.models)
-      if (m.family) (out.get(m.family) ?? out.set(m.family, []).get(m.family)!).push(m)
-    return out
-  }, [data])
-  const hasData = (m: Model) => req.every((id) => m.values[id] !== undefined)
-
-  const f = spec.filter
-  const toggle = (id: string) => {
-    const on = r.shown.has(id)
-    setF({
-      include: on ? f.include.filter((x) => x !== id) : [...f.include.filter((x) => x !== id), id],
-      exclude: on ? [...f.exclude.filter((x) => x !== id), id] : f.exclude.filter((x) => x !== id),
-    })
-  }
-  const setLab = (lab: string, on: boolean) => {
-    const ids = r.candidates.filter((m) => m.lab === lab).map((m) => m.id)
-    setF({
-      include: on
-        ? [...new Set([...f.include, ...ids])]
-        : f.include.filter((x) => !ids.includes(x)),
-      exclude: on
-        ? f.exclude.filter((x) => !ids.includes(x))
-        : [...new Set([...f.exclude, ...ids])],
-    })
-  }
-  const star = (id: string) =>
-    onChange({
-      ...spec,
-      highlight: spec.highlight.includes(id)
-        ? spec.highlight.filter((h) => h !== id)
-        : [...spec.highlight, id],
-    })
-  const pickEffort = (id: string, e: string) => {
-    const cur = spec.effortPick[id] ?? []
-    const next = cur.includes(e) ? cur.filter((x) => x !== e) : [...cur, e]
-    const effortPick = { ...spec.effortPick }
-    if (next.length) effortPick[id] = next
-    else delete effortPick[id]
-    onChange({ ...spec, effortPick })
-  }
-  const anyEfforts = data.models.some((m) => m.family && hasData(m))
-  const touched = f.include.length + f.exclude.length
-  const maxTop = spec.type === 'scatter' || spec.type === 'timeline' ? 120 : 30
-
+  const p = usePicker(data, spec, r, onChange)
+  const touched = spec.filter.include.length + spec.filter.exclude.length
   return (
-    <div className="space-y-5">
-      <div className="space-y-3 rounded-xl border border-white-20 p-3">
-        <p className="text-xs text-white-80">
-          <span className="font-semibold text-white">selección automática:</span> los {f.top}{' '}
-          mejores
-          {rankDef ? ` en ${rankDef.short.es.toLowerCase()}` : ''}
-          {f.sinceMonths ? ` de los últimos ${f.sinceMonths} meses` : ''}. después enciende o apaga
-          los que quieras abajo.
-        </p>
-        <input
-          type="range"
-          min={2}
-          max={maxTop}
-          value={Math.min(f.top, maxTop)}
-          onChange={(e) => setF({ top: Number(e.target.value) })}
-          className="w-full"
-        />
-        <Pills
-          value={f.sinceMonths ?? 0}
-          options={[
-            { value: 6, label: '6 meses' },
-            { value: 12, label: '1 año' },
-            { value: 24, label: '2 años' },
-            { value: 0, label: 'siempre' },
-          ]}
-          onChange={(v) => setF({ sinceMonths: v || null })}
-        />
-        <Pills
-          value={f.weights}
-          options={[
-            { value: 'all', label: 'abiertos y cerrados' },
-            { value: 'open', label: 'solo abiertos' },
-            { value: 'closed', label: 'solo cerrados' },
-          ]}
-          onChange={(v) => setF({ weights: v })}
-        />
-        {(spec.type === 'scatter' || spec.type === 'bars' || spec.type === 'timeline') &&
-          (anyEfforts ? (
-            <Toggle
-              label="todos los esfuerzos de cada modelo, unidos"
-              checked={spec.options.efforts === 'all'}
-              onChange={(v) => setO({ efforts: v ? 'all' : 'best' })}
-            />
-          ) : (
-            <p className="text-xs text-white-50">
-              estas métricas no distinguen niveles de esfuerzo (el eci, por ejemplo, se calcula una
-              vez por modelo). para ver esfuerzos usa el índice de artificial analysis o un
-              benchmark de epoch.
-            </p>
-          ))}
-        {spec.type === 'scatter' &&
-          spec.options.efforts === 'all' &&
-          data.metrics.find((m) => m.id === spec.x)?.unit === 'usd_per_mtok' && (
-            <p className="rounded-lg border border-white-30 p-2 text-xs text-white-80">
-              ojo: el precio por token es el mismo en todos los esfuerzos, así que salen en
-              vertical. para ver cuánto cuesta pensar más, pon en el eje horizontal un coste por
-              tarea (coste cursorbench, coste arc-agi-2...).
-            </p>
-          )}
-        {touched > 0 && (
-          <button
-            className="text-xs text-white-50 underline hover:text-white"
-            onClick={() => setF({ include: [], exclude: [] })}
-          >
-            deshacer mis {touched} cambios a mano
-          </button>
+    <div className="space-y-4">
+      {spec.type === 'scatter' &&
+        spec.options.efforts === 'all' &&
+        data.metrics.find((m) => m.id === spec.x)?.unit === 'usd_per_mtok' && (
+          <p className="rounded-lg border border-white-30 p-2 text-xs text-white-80">
+            {L(
+              'el precio por token es igual en todos los esfuerzos, así que saldrán en vertical. para ver cuánto cuesta cada esfuerzo usa un coste por tarea en el eje horizontal.',
+              'the price per token is the same at every effort, so they will stack vertically. to see what each effort costs, put a cost per task on the horizontal axis.',
+            )}
+          </p>
         )}
-      </div>
-
-      <p className="flex items-center gap-2 text-xs text-white-50">
-        <StarIcon on /> destaca un modelo: se ve en blanco puro y el resto se apaga.
-      </p>
-
-      {labs.length === 0 && (
-        <p className="text-sm text-white-50">no hay modelos con datos para esta gráfica.</p>
-      )}
-      {labs.map((lab) => (
-        <LabGroup
-          key={lab}
-          lab={lab}
-          name={labName.get(lab) ?? lab}
-          shape={
-            spec.options.series === 'lab' && (spec.type === 'scatter' || spec.type === 'timeline')
-              ? r.shapeOf(lab)
-              : null
-          }
-          models={data.models.filter((m) => !m.family && m.lab === lab)}
-          isCandidate={(m) => candidateIds.has(m.id)}
-          isShown={(m) => r.shown.has(m.id)}
-          isStarred={(m) => spec.highlight.includes(m.id)}
-          value={(m) =>
-            rankDef && m.values[rankDef.id] !== undefined
-              ? formatValue(m.values[rankDef.id], rankDef.unit)
-              : null
-          }
-          rank={(m) =>
-            rankDef && m.values[rankDef.id] !== undefined
-              ? rankDef.higherIsBetter
-                ? -m.values[rankDef.id]
-                : m.values[rankDef.id]
-              : Infinity
-          }
-          missing={req
-            .map((id) => data.metrics.find((d) => d.id === id)?.short.es ?? id)
-            .join(' y ')}
-          efforts={(m) =>
-            (variants.get(m.id) ?? [])
-              .filter(hasData)
-              .sort((a, b) => effortRank(a.effort) - effortRank(b.effort))
-          }
-          picked={(m) => spec.effortPick[m.id] ?? []}
-          onToggle={toggle}
-          onStar={star}
-          onEffort={pickEffort}
-          onAll={(on) => setLab(lab, on)}
-          tone={spec.options.color === 'model' ? (m) => r.tone(m) : null}
-        />
-      ))}
-    </div>
-  )
-}
-
-function LabGroup(p: {
-  lab: string
-  name: string
-  shape: Shape | null
-  models: Model[]
-  isCandidate: (m: Model) => boolean
-  isShown: (m: Model) => boolean
-  isStarred: (m: Model) => boolean
-  value: (m: Model) => string | null
-  rank: (m: Model) => number
-  missing: string
-  efforts: (m: Model) => Model[]
-  picked: (m: Model) => string[]
-  onToggle: (id: string) => void
-  onStar: (id: string) => void
-  onEffort: (id: string, e: string) => void
-  onAll: (on: boolean) => void
-  tone: ((m: Model) => number) | null
-}) {
-  const [more, setMore] = useState(false)
-  const [noData, setNoData] = useState(false)
-  const [openEfforts, setOpenEfforts] = useState<string[]>([])
-  const withData = p.models.filter(p.isCandidate).sort((a, b) => p.rank(a) - p.rank(b))
-  const recent = new Date()
-  recent.setUTCMonth(recent.getUTCMonth() - 18)
-  const without = p.models
-    .filter((m) => !p.isCandidate(m) && (m.releaseDate ?? '') >= recent.toISOString().slice(0, 10))
-    .sort((a, b) => (b.releaseDate ?? '').localeCompare(a.releaseDate ?? ''))
-  // shown models first, so what is on the chart is never hidden behind "ver más"
-  const ordered = [...withData.filter(p.isShown), ...withData.filter((m) => !p.isShown(m))]
-  const list = more ? ordered : ordered.slice(0, Math.max(10, withData.filter(p.isShown).length))
-  const shownCount = withData.filter(p.isShown).length
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <LabLogo lab={p.lab} name={p.name} className="h-5 w-5" />
-        <span className="font-semibold lowercase">{p.name}</span>
-        {p.shape && <ShapeIcon shape={p.shape} />}
-        <span className="text-xs text-white-50">
-          {shownCount}/{withData.length}
-        </span>
-        <span className="ml-auto flex gap-3 text-xs text-white-50">
-          <button className="hover:text-white" onClick={() => p.onAll(true)}>
-            todos
-          </button>
-          <button className="hover:text-white" onClick={() => p.onAll(false)}>
-            ninguno
-          </button>
-        </span>
-      </div>
-      <div className="space-y-1">
-        {list.map((m) => {
-          const on = p.isShown(m)
-          const starred = p.isStarred(m)
-          const effs = on ? p.efforts(m) : []
-          const val = p.value(m)
-          return (
-            <div key={m.id}>
-              <div
-                className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 transition-colors ${on ? 'border-white-50' : 'border-transparent opacity-50 hover:opacity-80'}`}
-              >
-                <button
-                  onClick={() => p.onToggle(m.id)}
-                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                >
-                  <span
-                    className={`grid h-4 w-4 shrink-0 place-items-center rounded-full border ${on ? 'border-white bg-white' : 'border-white-50'}`}
-                  >
-                    {on && <span className="h-1.5 w-1.5 rounded-full bg-bg" />}
-                  </span>
-                  {on && p.tone && (
-                    <span
-                      className="h-2.5 w-2.5 shrink-0 rounded-full bg-white"
-                      style={{ opacity: p.tone(m) }}
-                      title="opacidad en la gráfica"
-                    />
-                  )}
-                  <span className={`truncate text-sm lowercase ${starred ? 'font-bold' : ''}`}>
-                    {m.name}
-                  </span>
-                </button>
-                {effs.length > 1 && (
-                  <button
-                    onClick={() =>
-                      setOpenEfforts(
-                        openEfforts.includes(m.id)
-                          ? openEfforts.filter((x) => x !== m.id)
-                          : [...openEfforts, m.id],
-                      )
-                    }
-                    title="elegir niveles de esfuerzo"
-                    className={`shrink-0 rounded-full px-1.5 text-[0.65rem] font-semibold ${p.picked(m).length ? 'bg-white text-bg' : 'border border-white-30 text-white-50 hover:text-white'}`}
-                  >
-                    {p.picked(m).length
-                      ? `${p.picked(m).length}/${effs.length}`
-                      : `${effs.length} esf.`}
-                  </button>
-                )}
-                {val && <span className="shrink-0 text-xs font-semibold text-white-80">{val}</span>}
-                <button
-                  onClick={() => p.onStar(m.id)}
-                  title={starred ? 'quitar destacado' : 'destacar'}
-                  className={`shrink-0 ${starred ? 'text-white' : 'text-white-30 hover:text-white'}`}
-                >
-                  <StarIcon on={starred} />
-                </button>
-              </div>
-              {effs.length > 1 && (openEfforts.includes(m.id) || p.picked(m).length > 0) && (
-                <div className="mt-1 mb-2 ml-8 flex flex-wrap items-center gap-1">
-                  <span className="mr-1 text-[0.65rem] text-white-50">esfuerzo</span>
-                  {effs.map((v) => {
-                    const sel = p.picked(m).includes(v.effort!)
-                    return (
-                      <button
-                        key={v.id}
-                        onClick={() => p.onEffort(m.id, v.effort!)}
-                        className={`rounded-full px-2 py-0.5 text-[0.7rem] font-semibold ${sel ? 'bg-white text-bg' : 'border border-white-30 text-white-80 hover:border-white'}`}
-                      >
-                        {v.effort}
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
-      {ordered.length > list.length || more ? (
-        <button onClick={() => setMore(!more)} className="text-xs text-white-50 hover:text-white">
-          {more ? 'ver menos' : `ver los ${withData.length} modelos`}
+      {touched > 0 && (
+        <button
+          className="text-xs text-white-50 underline hover:text-white"
+          onClick={() => setF({ include: [], exclude: [] })}
+        >
+          {L('volver a la selección inicial', 'back to the initial selection')}
         </button>
-      ) : null}
-      {without.length > 0 && (
-        <div>
-          <button
-            onClick={() => setNoData(!noData)}
-            className="text-xs text-white-50 hover:text-white"
-          >
-            {noData
-              ? 'ocultar'
-              : `${without.length} recientes sin datos de ${p.missing || 'esta métrica'}`}
-          </button>
-          {noData && (
-            <div className="mt-1 flex flex-wrap gap-1.5">
-              {without.map((m) => (
-                <span
-                  key={m.id}
-                  title={`todavía nadie ha publicado ${p.missing} para este modelo`}
-                  className="rounded-full border border-dashed border-white-30 px-2.5 py-0.5 text-xs text-white-50 lowercase"
-                >
-                  {m.name}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
       )}
+
+      <LinesPicker p={p} />
     </div>
   )
 }
@@ -947,40 +798,18 @@ function Pill({
   return (
     <button
       onClick={onClick}
-      className={`rounded-full px-3 py-1 text-xs font-semibold ${on ? 'bg-white text-bg' : 'border border-white-30 text-white-80 hover:border-white'}`}
+      className={`rounded-full px-3 py-1 text-xs font-semibold ${on ? 'bg-solid text-on-solid' : 'border border-white-30 text-white-80 hover:border-white'}`}
     >
       {children}
     </button>
   )
 }
 
-// the lab's marker as it appears on the chart. on a white tile it sits on a
-// small cyan disc so it stays white, like on the poster
-function ShapeIcon({ shape, dark }: { shape: Shape; dark?: boolean }) {
+// the lab's marker as it appears on the chart; cyan when it sits on a white tile
+function ShapeIcon({ shape, color }: { shape: Shape; color?: string }) {
   return (
-    <span
-      className={`grid place-items-center rounded-full ${dark ? 'h-5 w-5 bg-bg' : ''}`}
-      title="forma en la gráfica"
-    >
-      <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
-        <Marker shape={shape} x={7} y={7} r={4.5} />
-      </svg>
-    </span>
-  )
-}
-
-function StarIcon({ on }: { on?: boolean }) {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill={on ? 'currentColor' : 'none'}
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinejoin="round"
-    >
-      <path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z" />
+    <svg width="14" height="14" viewBox="0 0 14 14" aria-label={`${L('forma', 'shape')}: ${shape}`}>
+      <Marker shape={shape} x={7} y={7} r={4.5} color={color ?? '#ffffff'} />
     </svg>
   )
 }

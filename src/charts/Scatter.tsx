@@ -8,7 +8,7 @@ import { type ChartProps, Empty, GridX, GridY, ticksFor, valueScale } from './ax
 import { lineObstacles, placeLabels } from './labels.ts'
 import { Legend, type LegendItem } from './Legend.tsx'
 import { Label, Marker } from './primitives.tsx'
-import { OPACITY, type Shape, tint, white } from './theme.ts'
+import { OPACITY, type Shape, tint, white, ink } from './theme.ts'
 
 // models nobody beats on both axes at once
 export function paretoFrontier(
@@ -88,7 +88,8 @@ export function Scatter({ r, box, s, tx }: ChartProps) {
   const shapeOf = (m: Model): Shape =>
     series === 'lab' ? r.shapeOf(m.lab) : series === 'weights' && m.openWeights ? 'ring' : 'circle'
   const legend: LegendItem[] =
-    series === 'lab'
+    // a legend with a single lab says nothing
+    series === 'lab' && r.labsShown.length > 1
       ? r.labsShown.slice(0, 7).map((lab) => ({ label: tx(r.lab(lab)), shape: r.shapeOf(lab) }))
       : series === 'weights'
         ? [
@@ -272,11 +273,11 @@ export function Scatter({ r, box, s, tx }: ChartProps) {
         format={(v) => formatValue(v, X.unit, true)}
       />
       <Label
-        x={plot.x + plot.w}
+        x={plot.x + plot.w / 2}
         y={plot.y + plot.h + 60 * s}
         size={16 * s}
         opacity={OPACITY.muted}
-        anchor="end"
+        anchor="middle"
         tracking={0.02}
       >
         {tx(axisTitle(X, L, logX))}
@@ -288,7 +289,7 @@ export function Scatter({ r, box, s, tx }: ChartProps) {
         <path
           d={frontierPath}
           fill="none"
-          stroke={white(0.75)}
+          stroke={ink(0.75)}
           strokeWidth={2.5 * s}
           strokeDasharray={`${10 * s} ${7 * s}`}
         />

@@ -8,7 +8,7 @@ import { type ChartProps, Empty, GridX, GridY, ticksFor, valueScale } from './ax
 import { lineObstacles, placeLabels, spreadVertically } from './labels.ts'
 import { scaleDash } from './Legend.tsx'
 import { Label, Marker } from './primitives.tsx'
-import { DASHES, OPACITY, type Shape, white } from './theme.ts'
+import { DASHES, OPACITY, type Shape, white, ink } from './theme.ts'
 
 const date = (m: Model) => new Date(`${m.releaseDate}T00:00:00Z`).getTime()
 
@@ -233,7 +233,7 @@ export function Timeline({ r, box, s, tx }: ChartProps) {
               <path
                 d={path}
                 fill="none"
-                stroke={white(mode === 'none' ? 0.85 : 1)}
+                stroke={ink(mode === 'none' ? 0.85 : 1)}
                 strokeWidth={3 * s}
                 strokeDasharray={scaleDash(g.dash, s)}
                 strokeLinejoin="round"

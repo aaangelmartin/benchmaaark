@@ -21,19 +21,14 @@ export function Table({ r, box, s, tx }: ChartProps) {
   const headSize = Math.min(15 * s, size * 0.8)
 
   const rankW = measure('00', size, 600) + 20 * s
-  const colW = Math.max(
-    ...cols.map((c) => measure(tx(c.short[L]), headSize, 600, 0.04) + 24 * s),
-    ...cols.flatMap((c) =>
-      r.models.map((m) =>
-        m.values[c.id] === undefined
-          ? 0
-          : measure(formatValue(m.values[c.id], c.unit), size, 700) + 40 * s,
-      ),
-    ),
+  // the model column takes what its names need; the rest is shared equally,
+  // and every header and value is centred in its column
+  const nameW = Math.min(
+    box.w * 0.36,
+    Math.max(...r.models.map((m) => measure(tx(m.name), size, 600))) + 40 * s,
   )
-  const metricsW = Math.min(colW * cols.length, box.w * 0.66)
-  const cw = metricsW / cols.length
-  const nameW = box.w - rankW - metricsW
+  const cw = (box.w - rankW - nameW) / cols.length
+  const colX = (j: number) => box.x + rankW + nameW + cw * (j + 0.5)
   const best = new Map(
     cols.map((c) => [
       c.id,
@@ -70,12 +65,12 @@ export function Table({ r, box, s, tx }: ChartProps) {
       {cols.map((c, j) => (
         <Label
           key={c.id}
-          x={box.x + rankW + nameW + cw * (j + 1) - 12 * s}
+          x={colX(j)}
           y={box.y + headH / 2}
           size={headSize}
           weight={600}
           opacity={OPACITY.muted}
-          anchor="end"
+          anchor="middle"
           tracking={0.04}
         >
           {tx(c.short[L])}
@@ -122,14 +117,14 @@ export function Table({ r, box, s, tx }: ChartProps) {
             {cols.map((c, j) => {
               const v = m.values[c.id]
               const top = best.get(c.id) === m.id
-              const right = box.x + rankW + nameW + cw * (j + 1) - 12 * s
+              const mid = colX(j)
               const text = v === undefined ? '-' : formatValue(v, c.unit)
               const tw = measure(text, size, 700)
               return (
                 <g key={c.id}>
                   {top && (
                     <rect
-                      x={right - tw - 14 * s}
+                      x={mid - tw / 2 - 14 * s}
                       y={cy - size * 0.82}
                       width={tw + 28 * s}
                       height={size * 1.64}
@@ -138,12 +133,12 @@ export function Table({ r, box, s, tx }: ChartProps) {
                     />
                   )}
                   <Label
-                    x={right}
+                    x={mid}
                     y={cy}
                     size={size}
                     weight={top ? 700 : 500}
                     opacity={v === undefined ? OPACITY.faint : top ? 1 : OPACITY.secondary}
-                    anchor="end"
+                    anchor="middle"
                   >
                     {text}
                   </Label>

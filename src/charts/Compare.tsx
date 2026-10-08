@@ -5,7 +5,7 @@ import type { MetricDef } from '../lib/types.ts'
 import { type ChartProps, Empty } from './axes.tsx'
 import { barBaseline, sortModels } from './Bars.tsx'
 import { Label } from './primitives.tsx'
-import { OPACITY, white } from './theme.ts'
+import { OPACITY, white, ink } from './theme.ts'
 
 function gridFor(n: number, aspect: number): number {
   if (aspect > 1.4) return n <= 3 ? n : Math.ceil(n / 2)
@@ -124,7 +124,7 @@ export function Compare({ r, box, s, tx }: ChartProps) {
                       width={w}
                       height={thick}
                       rx={thick / 2}
-                      fill={white(hl ? 1 : 0.5)}
+                      fill={ink(hl ? 1 : 0.5)}
                     />
                   )}
                   <Label

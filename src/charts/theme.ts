@@ -1,15 +1,28 @@
-// aaangelmartin.com/brand: the cyan is the canvas, everything on it is white at
+import { BRAND } from '../lib/brand.ts'
+
+// the canvas is the brand's colour (cyan for aaa., black for laaabs.) and
+// everything on it is white at
 // some opacity. no other colours, no gradients. series are told apart with
 // opacity, dash patterns, marker shapes and direct labels.
 
-export const BG = '#00b5e2'
-// white laid over the cyan at a given strength, as a solid colour. looks like
-// white at that opacity but hides whatever is behind it
-export function tint(a = 1): string {
+export const BG = BRAND.bg
+const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
+const [R, G, B] = rgb(BRAND.bg)
+const INK = rgb(BRAND.ink)
+
+const mix = (to: number[], a: number) => {
   const t = Math.max(0, Math.min(1, a))
-  const mix = (c: number) => Math.round(c + (255 - c) * t)
-  return `rgb(${mix(0x00)},${mix(0xb5)},${mix(0xe2)})`
+  const c = [R, G, B].map((from, i) => Math.round(from + (to[i] - from) * t))
+  return `rgb(${c[0]},${c[1]},${c[2]})`
 }
+
+// the ink laid over the canvas at a given strength, as a solid colour: looks
+// like that opacity but hides whatever is behind it. for points, lines, bars
+export const tint = (a = 1) => mix(INK, a)
+// the same for text, which is always white
+export const textTint = (a = 1) => mix([255, 255, 255], a)
+// translucent ink, for fills that sit on a track
+export const ink = (a = 1) => `rgba(${INK[0]},${INK[1]},${INK[2]},${a})`
 
 export const white = (a = 1) => (a >= 1 ? '#ffffff' : `rgba(255,255,255,${a})`)
 

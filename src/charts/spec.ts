@@ -38,6 +38,9 @@ export interface ChartSpec {
     models: string[] // explicit pick, overrides top n
     include: string[] // always shown, on top of the top n
     exclude: string[] // never shown
+    // which models are picked on their own: the latest of each line of each
+    // lab (opus, sonnet, haiku...), or every model there is
+    pool: 'recommended' | 'all'
   }
   highlight: string[] // model ids
   highlightLabs: string[]
@@ -76,6 +79,7 @@ export const DEFAULT_SPEC: ChartSpec = {
     models: [],
     include: [],
     exclude: [],
+    pool: 'recommended',
   },
   highlight: [],
   highlightLabs: [],
@@ -365,9 +369,7 @@ export const TEMPLATES: Template[] = [
   },
 ]
 
-// charts saved before cost per task existed (in a link or the url) used list
-// prices per token. those never move with effort, so they are swapped for the
-// cost per task of the same benchmark, or for cursorbench when there is none.
+// brings charts saved in old links up to date with renamed metrics
 export function normalizeSpec(spec: ChartSpec, data: Dataset): ChartSpec {
   // cursorbench used to come through epoch
   const renamed: Record<string, string> = {
@@ -382,29 +384,8 @@ export function normalizeSpec(spec: ChartSpec, data: Dataset): ChartSpec {
     metrics: spec.metrics.map(re),
     filter: { ...spec.filter, rankBy: spec.filter.rankBy ? re(spec.filter.rankBy) : null },
   }
-  const unit = (id: string) => data.metrics.find((m) => m.id === id)?.unit
-  const exists = (id: string) => data.metrics.some((m) => m.id === id)
-  let out = spec
-  if (
-    spec.type === 'scatter' &&
-    (unit(spec.x) === 'usd_per_mtok' || unit(spec.y) === 'usd_per_mtok')
-  ) {
-    const paired = `${spec.y}-cost`
-    out = exists(paired)
-      ? { ...spec, x: paired, options: { ...spec.options, logX: true } }
-      : {
-          ...spec,
-          y: 'cursorbench',
-          x: 'cursorbench-cost',
-          title: null,
-          subtitle: null,
-          options: { ...spec.options, logX: true },
-        }
-  }
-  if (unit(out.y) === 'usd_per_mtok')
-    out = { ...out, y: 'cursorbench-cost', title: null, subtitle: null }
-  const metrics = out.metrics.map((id) => (unit(id) === 'usd_per_mtok' ? 'cursorbench-cost' : id))
-  return { ...out, metrics: [...new Set(metrics)] }
+  void data
+  return spec
 }
 
 export function applyTemplate(t: Template, base: ChartSpec = DEFAULT_SPEC): ChartSpec {
@@ -456,6 +437,8 @@ export interface Resolved {
   // everything the chart could show, best first, to pick what is visible
   candidates: Model[]
   shown: Set<string>
+  // the latest model of each line of each lab, among the candidates
+  recommended: Set<string>
   familyOf: (m: Model) => string
   // opacity for the colour mode, 1 when it is off
   tone: (m: Model) => number
@@ -487,6 +470,20 @@ export function requiredMetrics(spec: ChartSpec): string[] {
     case 'table':
       return []
   }
+}
+
+// the line a model belongs to: its name without version numbers.
+// "Claude Opus 5.5" and "Claude Opus 5" are both "claude opus"
+export function seriesKey(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/\b\d+(\.\d+)*[a-z]?\b/g, ' ')
+    .replace(/\d+(\.\d+)*/g, ' ')
+    .replace(/[^a-z]+/g, ' ')
+    .replace(/\b(preview|latest|exp|experimental)\b/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ')
 }
 
 export function resolve(data: Dataset, spec: ChartSpec): Resolved {
@@ -542,6 +539,20 @@ export function resolve(data: Dataset, spec: ChartSpec): Resolved {
   }
   groups.sort((a, b) => score(b) - score(a))
 
+  // latest model of each line of each lab, as long as it is not a dead line
+  const cutoff = sinceDate(18)!
+  const latest = new Map<string, Model>()
+  for (const g of groups) {
+    const m = byId.get(familyOf(g[0])) ?? g[0]
+    const k = `${m.lab}|${seriesKey(m.name)}`
+    const cur = latest.get(k)
+    if (!cur || (m.releaseDate ?? '') > (cur.releaseDate ?? '')) latest.set(k, m)
+  }
+  const recommended = new Set(
+    [...latest.values()].filter((m) => !m.releaseDate || m.releaseDate >= cutoff).map((m) => m.id),
+  )
+  const usePool = f.pool === 'recommended' && recommended.size > 0 && spec.type !== 'timeline'
+
   const excluded = new Set(f.exclude)
   const isOut = (g: Model[]) => excluded.has(familyOf(g[0]))
   let picked: Model[][]
@@ -557,11 +568,13 @@ export function resolve(data: Dataset, spec: ChartSpec): Resolved {
         if (f.labs.length && !f.labs.includes(m.lab)) return false
         if (f.weights === 'open' && m.openWeights !== true) return false
         if (f.weights === 'closed' && m.openWeights !== false) return false
-        if (since && (!m.releaseDate || m.releaseDate < since)) return false
+        if (usePool ? !recommended.has(m.id) : since && (!m.releaseDate || m.releaseDate < since))
+          return false
         return !rankDef || score(g) > -Infinity
       })
       .filter((g) => !isOut(g))
-      .slice(0, f.top)
+      // with labs picked by hand you get all their models; otherwise the best few
+      .slice(0, f.labs.length && usePool ? Infinity : f.top)
   }
   const forced = new Set(f.include)
   for (const g of groups) if (forced.has(familyOf(g[0])) && !picked.includes(g)) picked.push(g)
@@ -607,6 +620,7 @@ export function resolve(data: Dataset, spec: ChartSpec): Resolved {
     models,
     candidates: groups.map((g) => byId.get(familyOf(g[0])) ?? g[0]),
     shown,
+    recommended,
     familyOf,
     tone: (m) => (mode === 'none' ? 1 : (toneOf.get(keyOf(m)) ?? 0.3)),
     toneLegend,

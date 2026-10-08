@@ -1,6 +1,6 @@
 import { measure } from '../lib/text.ts'
 import { Label, Marker } from './primitives.tsx'
-import { OPACITY, type Shape, white } from './theme.ts'
+import { OPACITY, type Shape, ink } from './theme.ts'
 
 export interface LegendItem {
   label: string
@@ -47,7 +47,7 @@ export function Legend({
                 x2={x0 + lineW - 8 * s}
                 y1={y}
                 y2={y}
-                stroke={white()}
+                stroke={ink()}
                 strokeWidth={3 * s}
                 strokeDasharray={scaleDash(it.dash, s)}
                 strokeLinecap={it.dash ? 'butt' : 'round'}
