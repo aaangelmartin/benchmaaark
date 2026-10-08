@@ -432,9 +432,13 @@ export function App() {
             </aside>
             {/* the poster sits in the middle of the space next to the sidebar,
                 and stays there while the sidebar scrolls */}
-            <main className="flex items-center justify-center p-4 md:p-8 lg:h-full lg:overflow-hidden">
-              <Preview data={data} spec={spec} onSelect={setModel} />
-            </main>
+            {/* the footer belongs to this column only: the sidebar runs the full height */}
+            <div className="flex min-h-0 min-w-0 flex-col lg:h-full">
+              <main className="flex min-h-0 flex-1 items-center justify-center p-4 md:p-8 lg:overflow-hidden">
+                <Preview data={data} spec={spec} onSelect={setModel} />
+              </main>
+              <Footer data={data} status={status} compact />
+            </div>
           </div>
         )}
 
@@ -483,7 +487,7 @@ export function App() {
         {view === 'models' && <DataView data={data} onSelect={setModel} />}
       </div>
 
-      <Footer data={data} status={status} compact={view === 'editor'} />
+      {view !== 'editor' && <Footer data={data} status={status} />}
       {model && (
         <ModelDrawer
           data={data}
