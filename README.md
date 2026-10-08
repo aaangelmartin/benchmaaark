@@ -59,19 +59,23 @@ when something matches wrong or not at all, check `data/raw/match-report.json` a
 
 manual values always win over fetched ones.
 
-## charts
+## the site
 
-every chart is interactive in the app: hover a point or bar for its numbers, click it for the full profile of the model (every metric and its rank). the "explorar" view shows all templates at once.
+- **galería**: every chart the data allows, a couple of hundred, generated per source and per metric (ranking, by effort, score vs cost, over time, table), with the curated ones first. filter by source, by kind, or search. a click opens a fresh editor on that chart.
+- **editor**: four steps. chart and source, labs (all of them, by logo), models (lists grouped by lab, sorted by release, score or name, with search), look. by default it picks the latest model of each line of each lab (opus, sonnet, haiku...); older ones are one click away. a star makes a model solid white and dims the rest. models run at several reasoning efforts can show each effort, joined by a line.
+- **mis gráficas**: whatever you edit is saved in the browser as you go.
+- **modelos**: every model with all its metrics and its rank in each.
 
-models run at several reasoning efforts (low, medium, high, xhigh, max, thinking budgets) are kept as variants. "esfuerzo de razonamiento: todos, unidos" draws each effort and joins them per model. "tono por" gives each lab or model its own white opacity, with a legend. "qué se muestra" lists every model the chart could include, with a switch to show or hide each one.
+charts are interactive in the editor: hover a point or bar for its numbers, click it for the model's profile.
 
-- **dispersión**: any two metrics, with the pareto frontier (intelligence vs price, arena vs price...)
-- **ranking**: sorted bars for one metric
-- **evolución**: one metric over release date, with record lines overall, per lab or open vs closed
-- **comparativa**: small multiples, a few models across several metrics
-- **tabla**: summary table, best value per column marked
+## two editions
 
-the gallery has ready-made templates. everything is editable in the editor and the url keeps the full chart, so a link reopens it exactly.
+the same site under two brands, one entry page each:
+
+- `/` is aaa.: the cyan `#00b5e2` is the canvas, white on top.
+- `/laaabs/` is laaabs.: black `#0a0a0a` canvas, white on top, cyan only as a signal (the dot of the wordmark).
+
+posters carry the brand mark top right and the domain bottom left.
 
 ## export
 
@@ -81,7 +85,7 @@ the gallery has ready-made templates. everything is editable in the editor and t
 
 ## brand
 
-follows [aaangelmartin.com/brand](https://aaangelmartin.com/brand): the cyan `#00b5e2` is the canvas, everything on it is white at 100/80/50/30/20/10% opacity, outfit 500 to 700, lowercase, no em dashes. series are told apart with opacity, dash patterns, marker shapes and direct labels, never with other colours.
+follows [aaangelmartin.com/brand](https://aaangelmartin.com/brand) and the laaabs. brand: one canvas colour, everything on it white at 100/80/50/30/20/10% strength, outfit 500 to 700, lowercase, no em dashes. on charts, shape is the lab and opacity is the model, never other colours.
 
 ## scripts
 
