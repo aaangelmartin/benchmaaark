@@ -112,7 +112,10 @@ export const TEMPLATES: Template[] = [
       type: 'scatter',
       x: 'cursorbench-cost',
       y: 'cursorbench',
-      title: { es: 'cuánto cuesta pensar más', en: 'what thinking harder costs' },
+      title: {
+        es: 'cursorbench: puntuación y coste por tarea',
+        en: 'cursorbench: score and cost per task',
+      },
       subtitle: {
         es: 'cursorbench: tareas reales de programación. cada línea es un modelo de low a max: cuanto más piensa, mejor resuelve y más cuesta cada tarea.',
         en: 'cursorbench: real coding tasks. each line is one model from low to max: the more it thinks, the better it solves and the more each task costs.',
@@ -127,7 +130,7 @@ export const TEMPLATES: Template[] = [
     spec: {
       type: 'bars',
       y: 'cursorbench',
-      title: { es: 'quién programa mejor', en: 'who codes best' },
+      title: { es: 'ranking de cursorbench', en: 'cursorbench ranking' },
       subtitle: {
         es: 'cursorbench: tareas reales de programación de cursor. cada modelo en su mejor nivel de esfuerzo.',
         en: 'cursorbench: real coding tasks from cursor. each model at its best effort level.',
@@ -142,7 +145,7 @@ export const TEMPLATES: Template[] = [
     spec: {
       type: 'bars',
       y: 'cursorbench',
-      title: { es: 'cada modelo, cada esfuerzo', en: 'every model, every effort' },
+      title: { es: 'cursorbench por nivel de esfuerzo', en: 'cursorbench by effort level' },
       subtitle: {
         es: 'cursorbench en cada nivel de esfuerzo de los modelos de la frontera.',
         en: 'cursorbench at every effort level of the frontier models.',
@@ -158,7 +161,10 @@ export const TEMPLATES: Template[] = [
       type: 'scatter',
       x: 'cursorbench-tokens',
       y: 'cursorbench',
-      title: { es: 'pensar más gasta más', en: 'thinking more spends more' },
+      title: {
+        es: 'cursorbench: puntuación y tokens por tarea',
+        en: 'cursorbench: score and tokens per task',
+      },
       subtitle: {
         es: 'tokens por tarea en cursorbench frente al acierto, de low a max.',
         en: 'tokens per task on cursorbench vs score, from low to max.',
@@ -174,7 +180,7 @@ export const TEMPLATES: Template[] = [
     spec: {
       type: 'bars',
       y: 'cursorbench-cost',
-      title: { es: 'cuánto cuesta una tarea', en: 'what one task costs' },
+      title: { es: 'coste por tarea en cursorbench', en: 'cost per task on cursorbench' },
       subtitle: {
         es: 'coste por tarea en cursorbench de los 15 mejores modelos, en su mejor nivel de esfuerzo.',
         en: 'cost per cursorbench task for the 15 best models, at their best effort level.',
@@ -195,7 +201,7 @@ export const TEMPLATES: Template[] = [
         'cursorbench-steps',
         'eci',
       ],
-      title: { es: 'cursorbench al detalle', en: 'cursorbench in detail' },
+      title: { es: 'tabla de cursorbench', en: 'cursorbench table' },
       subtitle: null,
       filter: { top: 12, rankBy: 'cursorbench', sinceMonths: null },
     },
@@ -206,7 +212,7 @@ export const TEMPLATES: Template[] = [
     spec: {
       type: 'compare',
       metrics: ['cursorbench', 'cursorbench-cost', 'cursorbench-tokens', 'cursorbench-steps'],
-      title: { es: 'cara a cara en la frontera', en: 'head to head at the frontier' },
+      title: { es: 'comparativa de modelos en cursorbench', en: 'model comparison on cursorbench' },
       subtitle: null,
       filter: { top: 4, rankBy: 'cursorbench', sinceMonths: null },
     },
@@ -218,7 +224,10 @@ export const TEMPLATES: Template[] = [
       type: 'scatter',
       x: 'epoch-arc-agi-2-cost',
       y: 'epoch-arc-agi-2',
-      title: { es: 'razonar cuesta', en: 'reasoning has a price' },
+      title: {
+        es: 'arc-agi-2: puntuación y coste por tarea',
+        en: 'arc-agi-2: score and cost per task',
+      },
       subtitle: {
         es: 'arc-agi-2: puzles de razonamiento abstracto. coste por tarea en cada nivel de esfuerzo.',
         en: 'arc-agi-2: abstract reasoning puzzles. cost per task at each effort level.',
@@ -235,8 +244,8 @@ export const TEMPLATES: Template[] = [
       x: 'epoch-deepswe-cost',
       y: 'epoch-deepswe',
       title: {
-        es: 'agentes de software: acierto frente a coste',
-        en: 'software agents: success vs cost',
+        es: 'deepswe: puntuación y coste por tarea',
+        en: 'deepswe: score and cost per task',
       },
       subtitle: {
         es: 'deepswe: tareas de ingeniería de varios pasos. coste medio por tarea en cada nivel de esfuerzo.',
@@ -252,7 +261,10 @@ export const TEMPLATES: Template[] = [
     spec: {
       type: 'bars',
       y: 'eci',
-      title: { es: 'los modelos más capaces', en: 'the most capable models' },
+      title: {
+        es: 'ranking de capacidades de epoch (eci)',
+        en: 'epoch capabilities index (eci) ranking',
+      },
       subtitle: {
         es: 'índice de capacidades de epoch (eci), combinación de decenas de benchmarks.',
         en: 'epoch capabilities index (eci), a blend of dozens of benchmarks.',
@@ -267,8 +279,8 @@ export const TEMPLATES: Template[] = [
       type: 'bars',
       y: 'aa-intelligence',
       title: {
-        es: 'inteligencia según artificial analysis',
-        en: 'intelligence by artificial analysis',
+        es: 'ranking de inteligencia de artificial analysis',
+        en: 'artificial analysis intelligence ranking',
       },
       subtitle: {
         es: 'índice de inteligencia de artificial analysis, mejor nivel de esfuerzo de cada modelo.',
@@ -283,7 +295,7 @@ export const TEMPLATES: Template[] = [
     spec: {
       type: 'bars',
       y: 'aa-speed',
-      title: { es: 'los más rápidos', en: 'the fastest' },
+      title: { es: 'velocidad de salida', en: 'output speed' },
       subtitle: {
         es: 'tokens de salida por segundo, mediana medida por artificial analysis. modelos del último año.',
         en: 'output tokens per second, median measured by artificial analysis. models from the last year.',
@@ -298,7 +310,7 @@ export const TEMPLATES: Template[] = [
     spec: {
       type: 'timeline',
       y: 'eci',
-      title: { es: 'la carrera por la frontera', en: 'the frontier race' },
+      title: { es: 'evolución del eci por laboratorio', en: 'eci over time by lab' },
       subtitle: {
         es: 'mejor índice de capacidades de epoch por laboratorio a lo largo del tiempo.',
         en: 'best epoch capabilities index per lab over time.',
@@ -317,7 +329,7 @@ export const TEMPLATES: Template[] = [
     spec: {
       type: 'timeline',
       y: 'eci',
-      title: { es: 'pesos abiertos frente a cerrados', en: 'open weights vs closed weights' },
+      title: { es: 'eci: pesos abiertos y cerrados', en: 'eci: open and closed weights' },
       subtitle: {
         es: 'mejor modelo de cada grupo según el índice de capacidades de epoch.',
         en: 'best model in each group by the epoch capabilities index.',
@@ -332,7 +344,7 @@ export const TEMPLATES: Template[] = [
     spec: {
       type: 'bars',
       y: 'arena-text',
-      title: { es: 'lo que prefiere la gente', en: 'what people prefer' },
+      title: { es: 'ranking de lmarena (texto)', en: 'lmarena ranking (text)' },
       subtitle: {
         es: 'elo de lmarena (texto), votos ciegos comparando respuestas por parejas.',
         en: 'lmarena text elo, blind votes comparing answers head to head.',
@@ -346,7 +358,7 @@ export const TEMPLATES: Template[] = [
     spec: {
       type: 'bars',
       y: 'epoch-frontiercode',
-      title: { es: 'quién programa mejor', en: 'who codes best' },
+      title: { es: 'ranking de frontiercode', en: 'frontiercode ranking' },
       subtitle: {
         es: 'frontiercode (cognition): tareas de programación agéntica, media de 5 intentos.',
         en: 'frontiercode (cognition): agentic coding tasks, mean of 5 attempts.',
@@ -360,7 +372,7 @@ export const TEMPLATES: Template[] = [
     spec: {
       type: 'timeline',
       y: 'metr-horizon',
-      title: { es: 'cuánto trabajo aguanta la ia sola', en: 'how long ai can work alone' },
+      title: { es: 'horizonte temporal de metr', en: 'metr time horizon' },
       subtitle: {
         es: 'duración de tareas de software que el modelo completa con un 50% de éxito (metr).',
         en: 'length of software tasks a model completes with 50% success (metr).',
