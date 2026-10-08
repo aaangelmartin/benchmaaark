@@ -32,6 +32,11 @@
   --color-white-10: rgb(255 255 255 / 0.1);
 }
 
+/* laaabs. edition: black canvas, white on top, cyan only as a signal */
+html[data-brand='laaabs'] {
+  --color-bg: #0a0a0a;
+}
+
 html,
 body {
   background: var(--color-bg);

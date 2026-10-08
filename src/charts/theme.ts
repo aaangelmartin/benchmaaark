@@ -1,14 +1,19 @@
-// aaangelmartin.com/brand: the cyan is the canvas, everything on it is white at
+import { BRAND } from '../lib/brand.ts'
+
+// the canvas is the brand's colour (cyan for aaa., black for laaabs.) and
+// everything on it is white at
 // some opacity. no other colours, no gradients. series are told apart with
 // opacity, dash patterns, marker shapes and direct labels.
 
-export const BG = '#00b5e2'
-// white laid over the cyan at a given strength, as a solid colour. looks like
+export const BG = BRAND.bg
+const [R, G, B] = [1, 3, 5].map((i) => parseInt(BRAND.bg.slice(i, i + 2), 16))
+
+// white laid over the canvas at a given strength, as a solid colour. looks like
 // white at that opacity but hides whatever is behind it
 export function tint(a = 1): string {
   const t = Math.max(0, Math.min(1, a))
   const mix = (c: number) => Math.round(c + (255 - c) * t)
-  return `rgb(${mix(0x00)},${mix(0xb5)},${mix(0xe2)})`
+  return `rgb(${mix(R)},${mix(G)},${mix(B)})`
 }
 
 export const white = (a = 1) => (a >= 1 ? '#ffffff' : `rgba(255,255,255,${a})`)
