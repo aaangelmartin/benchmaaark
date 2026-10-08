@@ -26,6 +26,11 @@ interface Picker {
   efforts: (m: Model) => Model[]
   picked: (m: Model) => string[]
   pickEffort: (id: string, e: string) => void
+  // whether any model here was run at more than one effort
+  anyEfforts: boolean
+  // best: one run per model. all: every effort of every model
+  setEfforts: (mode: 'best' | 'all') => void
+  clearStars: () => void
 }
 
 export function usePicker(
@@ -124,6 +129,14 @@ export function usePicker(
       else delete effortPick[id]
       onChange({ ...spec, effortPick })
     },
+    anyEfforts: r.candidates.some(
+      (m) =>
+        (variants.get(m.id) ?? []).filter((v) => req.every((id) => v.values[id] !== undefined))
+          .length > 1,
+    ),
+    setEfforts: (mode) =>
+      onChange({ ...spec, effortPick: {}, options: { ...spec.options, efforts: mode } }),
+    clearStars: () => onChange({ ...spec, highlight: [], highlightLabs: [] }),
   }
 }
 
@@ -205,8 +218,6 @@ function LabHead({ p, lab, children }: { p: Picker; lab: string; children?: Reac
 
 // ---- a. lines: one chip per version ----------------------------------------------
 
-type Mode = 'show' | 'star' | 'effort'
-
 // "Claude Opus 5.5" in the line "claude opus" is version "5.5"
 function versionOf(m: Model): string {
   const words = new Set(seriesKey(m.name).split(' '))
@@ -218,32 +229,81 @@ function versionOf(m: Model): string {
 }
 
 export function LinesPicker({ p }: { p: Picker }) {
-  const [mode, setMode] = useState<Mode>('show')
   const [more, setMore] = useState<string[]>([])
-  const [effortFor, setEffortFor] = useState<string | null>(null)
-  const click = (m: Model) => {
-    if (mode === 'show') p.toggle(m.id)
-    else if (mode === 'star') {
-      if (!p.isOn(m)) p.toggle(m.id)
-      else p.star(m.id)
-    } else setEffortFor(effortFor === m.id ? null : m.id)
-  }
+  const [choosing, setChoosing] = useState(false)
+  const hasPicks = Object.keys(p.spec.effortPick).length > 0
+  const efforts: 'best' | 'all' | 'choose' =
+    choosing || hasPicks ? 'choose' : p.spec.options.efforts
+  const starred = p.labs.flatMap((l) => p.models(l, true)).filter(p.isStar)
+  const showEfforts = p.anyEfforts && p.spec.type !== 'compare' && p.spec.type !== 'table'
+
   return (
     <div className="space-y-4">
-      <div>
-        <p className="mb-1.5 text-xs text-white-50">
-          {L('al pulsar una versión', 'when you click a version')}
-        </p>
-        <Seg
-          value={mode}
-          onChange={setMode}
-          options={[
-            ['show', L('mostrar u ocultar', 'show or hide')],
-            ['star', L('destacar', 'highlight')],
-            ['effort', L('elegir esfuerzos', 'pick efforts')],
-          ]}
-        />
+      {showEfforts && (
+        <div>
+          <p className="mb-1.5 text-xs text-white-50">
+            {L('niveles de esfuerzo', 'effort levels')}
+          </p>
+          <Seg
+            value={efforts}
+            onChange={(v) => {
+              setChoosing(v === 'choose')
+              if (v === 'choose') {
+                if (p.spec.options.efforts !== 'best') p.setEfforts('best')
+              } else p.setEfforts(v)
+            }}
+            options={[
+              ['best', L('solo el mejor', 'best only')],
+              ['all', L('todos', 'all')],
+              ['choose', L('elegir', 'choose')],
+            ]}
+          />
+          <p className="mt-1.5 text-xs text-white-50">
+            {efforts === 'best'
+              ? L(
+                  'cada modelo sale una vez, con su mejor resultado.',
+                  'each model appears once, at its best result.',
+                )
+              : efforts === 'all'
+                ? L(
+                    'cada modelo sale con todos sus niveles, unidos por una línea.',
+                    'each model appears with every level, joined by a line.',
+                  )
+                : L(
+                    'marca bajo cada modelo los niveles que quieres ver.',
+                    'tick under each model the levels you want to see.',
+                  )}
+          </p>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-white-50">
+        <span className="flex items-center gap-1.5">
+          <Star on />
+          {starred.length === 0
+            ? L(
+                'pulsa la estrella de un modelo para destacarlo: blanco puro, el resto se apaga.',
+                "press a model's star to highlight it: solid, the rest dims.",
+              )
+            : L('destacados:', 'highlighted:')}
+        </span>
+        {starred.map((m) => (
+          <button
+            key={m.id}
+            onClick={() => p.star(m.id)}
+            title={L('quitar destacado', 'remove highlight')}
+            className="inline-flex items-center gap-1 rounded-full bg-solid px-2 py-0.5 font-semibold text-on-solid lowercase"
+          >
+            {m.name} <span className="opacity-60">×</span>
+          </button>
+        ))}
+        {starred.length > 1 && (
+          <button onClick={p.clearStars} className="underline hover:text-white">
+            {L('quitar todos', 'clear all')}
+          </button>
+        )}
       </div>
+
       {p.labs.map((lab) => {
         const all = p.models(lab, true)
         const lines = new Map<string, Model[]>()
@@ -257,10 +317,21 @@ export function LinesPicker({ p }: { p: Picker }) {
         )
         const live = rows.filter(([, ms]) => ms.some((m) => p.r.recommended.has(m.id) || p.isOn(m)))
         const list = expanded ? rows : live
-        if (!list.length && !rows.length) return null
+        if (!rows.length) return null
         return (
           <div key={lab} className="space-y-2">
             <LabHead p={p} lab={lab}>
+              <button
+                className="hover:text-white"
+                onClick={() =>
+                  p.setMany(
+                    all.filter((m) => p.r.recommended.has(m.id)).map((m) => m.id),
+                    true,
+                  )
+                }
+              >
+                {L('últimos', 'latest')}
+              </button>
               <button
                 className="hover:text-white"
                 onClick={() =>
@@ -274,49 +345,40 @@ export function LinesPicker({ p }: { p: Picker }) {
               </button>
             </LabHead>
             <div className="space-y-1.5">
-              {list.map(([k, ms]) => (
-                <div key={k}>
-                  <div className="flex items-start gap-2">
-                    <span className="w-24 shrink-0 truncate pt-1 text-xs text-white-50" title={k}>
-                      {k}
-                    </span>
-                    <div className="flex min-w-0 flex-1 flex-wrap gap-1">
-                      {ms.slice(0, expanded ? 99 : 5).map((m) => {
-                        const on = p.isOn(m)
-                        const starred = p.isStar(m)
-                        return (
-                          <button
-                            key={m.id}
-                            onClick={() => click(m)}
-                            title={`${m.name}${m.releaseDate ? `, ${m.releaseDate.slice(0, 7)}` : ''}${p.value(m) ? `, ${p.value(m)}` : ''}`}
-                            className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors ${on ? 'bg-solid text-on-solid' : 'border border-white-30 text-white-50 hover:border-white hover:text-white'}`}
-                          >
-                            {starred && <Star on />}
+              {list.map(([k, ms]) => {
+                const withLevels =
+                  efforts === 'choose' ? ms.filter((m) => p.isOn(m) && p.efforts(m).length > 1) : []
+                return (
+                  <div key={k}>
+                    <div className="flex items-start gap-2">
+                      <span
+                        className="w-24 shrink-0 truncate pt-1.5 text-xs text-white-50"
+                        title={k}
+                      >
+                        {k}
+                      </span>
+                      <div className="flex min-w-0 flex-1 flex-wrap gap-1">
+                        {ms.slice(0, expanded ? 99 : 5).map((m) => (
+                          <VersionChip key={m.id} p={p} m={m} />
+                        ))}
+                      </div>
+                    </div>
+                    {withLevels.map((m) => (
+                      <div
+                        key={m.id}
+                        className="mt-1.5 mb-1 ml-26 flex flex-wrap items-center gap-1.5 pl-0.5"
+                      >
+                        {ms.filter(p.isOn).length > 1 && (
+                          <span className="text-[0.7rem] font-semibold text-white-80">
                             {versionOf(m)}
-                            {p.picked(m).length > 0 && (
-                              <span className="opacity-60">{p.picked(m).length}e</span>
-                            )}
-                          </button>
-                        )
-                      })}
-                    </div>
+                          </span>
+                        )}
+                        <EffortChips p={p} m={m} />
+                      </div>
+                    ))}
                   </div>
-                  {ms.some((m) => m.id === effortFor) && (
-                    <div className="mt-1.5 mb-1 ml-26 pl-0.5">
-                      {p.efforts(ms.find((m) => m.id === effortFor)!).length > 1 ? (
-                        <EffortChips p={p} m={ms.find((m) => m.id === effortFor)!} />
-                      ) : (
-                        <span className="text-xs text-white-50">
-                          {L(
-                            'este modelo solo tiene un nivel de esfuerzo en esta métrica.',
-                            'this model has a single effort level on this metric.',
-                          )}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
+                )
+              })}
             </div>
             {rows.length > live.length && (
               <button
@@ -332,5 +394,44 @@ export function LinesPicker({ p }: { p: Picker }) {
         )
       })}
     </div>
+  )
+}
+
+// one version of a line. off: an outline, click to show. on: a filled chip with
+// its own star, click the star to highlight and the name to hide
+function VersionChip({ p, m }: { p: Picker; m: Model }) {
+  const on = p.isOn(m)
+  const starred = p.isStar(m)
+  const tip = `${m.name}${m.releaseDate ? `, ${m.releaseDate.slice(0, 7)}` : ''}${p.value(m) ? `, ${p.value(m)}` : ''}`
+  if (!on)
+    return (
+      <button
+        onClick={() => p.toggle(m.id)}
+        title={`${tip}. ${L('pulsa para mostrarlo', 'click to show it')}`}
+        className="rounded-full border border-white-30 px-2.5 py-1 text-xs font-semibold text-white-50 transition-colors hover:border-white hover:text-white"
+      >
+        {versionOf(m)}
+      </button>
+    )
+  return (
+    <span
+      className={`inline-flex items-center rounded-full bg-solid text-xs font-semibold text-on-solid ${starred ? 'ring-2 ring-white ring-offset-2 ring-offset-bg' : ''}`}
+    >
+      <button
+        onClick={() => p.star(m.id)}
+        title={starred ? L('quitar destacado', 'remove highlight') : L('destacar', 'highlight')}
+        aria-pressed={starred}
+        className={`grid h-6 w-6 place-items-center rounded-full pl-1 transition-opacity ${starred ? 'opacity-100' : 'opacity-40 hover:opacity-100'}`}
+      >
+        <Star on={starred} />
+      </button>
+      <button
+        onClick={() => p.toggle(m.id)}
+        title={`${tip}. ${L('pulsa para ocultarlo', 'click to hide it')}`}
+        className="py-1 pr-2.5 pl-0.5"
+      >
+        {versionOf(m)}
+      </button>
+    </span>
   )
 }

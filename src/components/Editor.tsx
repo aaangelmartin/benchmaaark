@@ -11,7 +11,6 @@ import {
   type ChartType,
   FORMATS,
   type FormatId,
-  requiredMetrics,
   type Resolved,
   resolve,
 } from '../charts/spec.ts'
@@ -145,7 +144,7 @@ export function Editor({
         onToggle={() => toggle(3)}
         onNext={() => onStep(4)}
       >
-        <ModelsStep data={data} spec={spec} r={r} onChange={onChange} setF={setF} setO={setO} />
+        <ModelsStep data={data} spec={spec} r={r} onChange={onChange} setF={setF} />
       </StepBox>
 
       <StepBox
@@ -675,32 +674,17 @@ function ModelsStep({
   r,
   onChange,
   setF,
-  setO,
 }: {
   data: Dataset
   spec: ChartSpec
   r: Resolved
   onChange: (s: ChartSpec) => void
   setF: (p: Partial<ChartSpec['filter']>) => void
-  setO: (p: Partial<ChartSpec['options']>) => void
 }) {
   const p = usePicker(data, spec, r, onChange)
-  const req = requiredMetrics(spec)
-  const anyEfforts = useMemo(
-    () => data.models.some((m) => m.family && req.every((id) => m.values[id] !== undefined)),
-    [data, spec.x, spec.y, spec.type], // eslint-disable-line react-hooks/exhaustive-deps
-  )
   const touched = spec.filter.include.length + spec.filter.exclude.length
   return (
     <div className="space-y-4">
-      {(spec.type === 'scatter' || spec.type === 'bars' || spec.type === 'timeline') &&
-        anyEfforts && (
-          <Toggle
-            label={L('todos los niveles de esfuerzo, unidos', 'every effort level, joined')}
-            checked={spec.options.efforts === 'all'}
-            onChange={(v) => setO({ efforts: v ? 'all' : 'best' })}
-          />
-        )}
       {spec.type === 'scatter' &&
         spec.options.efforts === 'all' &&
         data.metrics.find((m) => m.id === spec.x)?.unit === 'usd_per_mtok' && (
