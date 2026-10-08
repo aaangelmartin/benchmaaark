@@ -20,6 +20,7 @@ import { InteractivePoster } from './components/InteractivePoster.tsx'
 import { ModelDrawer } from './components/ModelDrawer.tsx'
 import { Button } from './components/ui.tsx'
 import { BRAND } from './lib/brand.ts'
+import { CAN_SWITCH_LANG, getLang, L, setLang, useLang } from './lib/lang.ts'
 import {
   type BatchItem,
   copyPng,
@@ -32,6 +33,9 @@ import {
 } from './lib/export.ts'
 import { loadSaved, newId, removeSaved, type SavedChart, upsertSaved } from './lib/saved.ts'
 import type { Dataset, Locale } from './lib/types.ts'
+
+// the languages a batch export covers: both on aaa., english only on laaabs.
+const EXPORT_LANGS: Locale[] = CAN_SWITCH_LANG ? ['es', 'en'] : ['en']
 import { type DataStatus, useDataset } from './lib/useDataset.ts'
 
 type View = 'gallery' | 'editor' | 'saved' | 'models'
@@ -54,14 +58,15 @@ const slug = (s: string) =>
     .replace(/^-|-$/g, '') || 'chart'
 
 export function App() {
+  // read here so the whole tree re-renders when the language changes
+  const lang = useLang()
   const { data, error, status, refresh } = useDataset()
   const initial = useMemo(fromHash, [])
   const [view, setView] = useState<View>(initial.view)
   const [spec, setSpec] = useState<ChartSpec>(
-    initial.spec ?? applyTemplate(TEMPLATES[0], DEFAULT_SPEC),
+    () => initial.spec ?? applyTemplate(TEMPLATES[0], { ...DEFAULT_SPEC, locale: getLang() }),
   )
   const [step, setStep] = useState<Step | null>(2)
-  const [locale, setLocale] = useState<Locale>(initial.spec?.locale ?? 'es')
   const [busy, setBusy] = useState<string | null>(null)
   const [model, setModel] = useState<string | null>(null)
   const [saved, setSaved] = useState<SavedChart[]>(loadSaved)
@@ -80,6 +85,11 @@ export function App() {
             : '#/'
     history.replaceState(null, '', hash)
   }, [spec, view])
+
+  // the open chart follows the site language, without counting as an edit
+  useEffect(() => {
+    setSpec((s) => (s.locale === lang ? s : { ...s, locale: lang }))
+  }, [lang])
 
   useEffect(() => {
     const onHash = () => {
@@ -118,7 +128,7 @@ export function App() {
   }
 
   const chartName = (s: ChartSpec) =>
-    data ? autoTitle(s, resolve(data, s)).title.toLowerCase() : 'gráfica'
+    data ? autoTitle(s, resolve(data, s)).title.toLowerCase() : L('gráfica', 'chart')
 
   // edits are kept in the browser as you go
   const edit = (next: ChartSpec) => {
@@ -135,7 +145,17 @@ export function App() {
     )
   }
 
-  if (!data) return <Centered>{error ?? 'cargando datos...'}</Centered>
+  if (!data)
+    return (
+      <Centered>
+        {error
+          ? L(
+              'todavía no hay datos. se están descargando, espera un momento.',
+              'no data yet. it is being downloaded, give it a moment.',
+            )
+          : L('cargando datos...', 'loading data...')}
+      </Centered>
+    )
 
   const fixed = normalizeSpec(spec, data)
   if (JSON.stringify(fixed) !== JSON.stringify(spec)) {
@@ -148,11 +168,11 @@ export function App() {
       const t = TEMPLATES[0]
       return [
         {
-          label: 'ver en inteligencia vs coste',
+          label: L('ver en inteligencia vs coste', 'see in intelligence vs cost'),
           onClick: () =>
             openFresh(
               {
-                ...applyTemplate(t, { ...DEFAULT_SPEC, locale }),
+                ...applyTemplate(t, { ...DEFAULT_SPEC, locale: lang }),
                 highlight: [id],
                 filter: { ...applyTemplate(t).filter, include: [id] },
               },
@@ -165,7 +185,9 @@ export function App() {
     const shown = resolve(data, spec).shown.has(id)
     return [
       {
-        label: on ? 'quitar el destacado' : 'destacar en esta gráfica',
+        label: on
+          ? L('quitar el destacado', 'remove highlight')
+          : L('destacar en esta gráfica', 'highlight in this chart'),
         onClick: () => {
           edit({
             ...spec,
@@ -175,7 +197,9 @@ export function App() {
         },
       },
       {
-        label: shown ? 'quitar de la gráfica' : 'añadir a la gráfica',
+        label: shown
+          ? L('quitar de la gráfica', 'remove from the chart')
+          : L('añadir a la gráfica', 'add to the chart'),
         onClick: () => {
           const f = spec.filter
           edit({
@@ -204,14 +228,17 @@ export function App() {
             run('png', async () => download(await posterPng(data, spec, 2), `${base}.png`))
           }
         >
-          {busy === 'png' ? 'exportando...' : 'descargar png'}
+          {busy === 'png' ? L('exportando...', 'exporting...') : L('descargar png', 'download png')}
         </Button>
         <Button
           disabled={!!busy}
-          title="copiar el png para pegarlo directamente en x"
+          title={L(
+            'copiar el png para pegarlo directamente en x',
+            'copy the png to paste it straight into x',
+          )}
           onClick={() => run('copy', async () => copyPng(await posterPng(data, spec, 2)))}
         >
-          {busy === 'copy' ? 'copiado' : 'copiar'}
+          {busy === 'copy' ? L('copiado', 'copied') : L('copiar', 'copy')}
         </Button>
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-white-50">
@@ -237,11 +264,18 @@ export function App() {
         </button>
         <button
           className="hover:text-white"
-          title="esta gráfica en todos los formatos y en los dos idiomas"
+          title={
+            CAN_SWITCH_LANG
+              ? L(
+                  'esta gráfica en todos los formatos y en los dos idiomas',
+                  'this chart in every format and both languages',
+                )
+              : 'this chart in every format'
+          }
           onClick={() =>
             run('formats', async () => {
               const items: BatchItem[] = (Object.keys(FORMATS) as FormatId[]).flatMap((format) =>
-                (['es', 'en'] as const).map((l) => ({
+                EXPORT_LANGS.map((l) => ({
                   name,
                   spec: { ...spec, format, locale: l },
                 })),
@@ -253,15 +287,19 @@ export function App() {
                   { png: true, svg: true, csv: true, scale: 2 },
                   (d, t) => setBusy(`formats ${d}/${t}`),
                 ),
-                `${name}-todos-los-formatos.zip`,
+                `${name}-${L('todos-los-formatos', 'all-formats')}.zip`,
               )
             })
           }
         >
-          {busy?.startsWith('formats') ? busy.replace('formats', 'zip') : 'todos los formatos'}
+          {busy?.startsWith('formats')
+            ? busy.replace('formats', 'zip')
+            : L('todos los formatos', 'all formats')}
         </button>
         <span className="ml-auto font-medium">
-          {pristine.current ? 'sin cambios' : 'guardada en mis gráficas'}
+          {pristine.current
+            ? L('sin cambios', 'no changes')
+            : L('guardada en mis gráficas', 'saved in my charts')}
         </span>
       </div>
     </div>
@@ -284,10 +322,13 @@ export function App() {
           <nav className="flex gap-4 text-sm font-medium">
             {(
               [
-                ['gallery', 'galería'],
+                ['gallery', L('galería', 'gallery')],
                 ['editor', 'editor'],
-                ['saved', `mis gráficas${saved.length ? ` ${saved.length}` : ''}`],
-                ['models', 'modelos'],
+                [
+                  'saved',
+                  `${L('mis gráficas', 'my charts')}${saved.length ? ` ${saved.length}` : ''}`,
+                ],
+                ['models', L('modelos', 'models')],
               ] as const
             ).map(([id, label]) => (
               <button
@@ -302,6 +343,20 @@ export function App() {
               </button>
             ))}
           </nav>
+          {CAN_SWITCH_LANG && (
+            <div className="flex gap-2 text-sm font-medium" aria-label={L('idioma', 'language')}>
+              {(['es', 'en'] as const).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => setLang(l)}
+                  aria-pressed={lang === l}
+                  className={`transition-opacity duration-300 ${lang === l ? 'opacity-100' : 'opacity-50 hover:opacity-80'}`}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </header>
 
@@ -309,15 +364,13 @@ export function App() {
         {view === 'gallery' && (
           <Gallery
             data={data}
-            locale={locale}
-            onLocale={setLocale}
             busy={busy}
-            onOpen={(e: Entry) => openFresh(entrySpec(e, { format: 'landscape', locale }), 2)}
+            onOpen={(e: Entry) => openFresh(entrySpec(e, { format: 'landscape', locale: lang }), 2)}
             onNew={() =>
               openFresh(
                 {
                   ...DEFAULT_SPEC,
-                  locale,
+                  locale: lang,
                   type: 'bars',
                   y: 'cursorbench',
                   title: null,
@@ -329,7 +382,7 @@ export function App() {
             onExportAll={(entries, format) =>
               run('templates', async () => {
                 const items = entries.flatMap((e) =>
-                  (['es', 'en'] as const).map((l) => ({
+                  EXPORT_LANGS.map((l) => ({
                     name: e.id,
                     spec: entrySpec(e, { format, locale: l }),
                   })),
@@ -374,7 +427,7 @@ export function App() {
               openFresh(
                 {
                   ...DEFAULT_SPEC,
-                  locale,
+                  locale: lang,
                   type: 'bars',
                   y: 'cursorbench',
                   title: null,
@@ -386,7 +439,7 @@ export function App() {
             onOpen={(c) => {
               savedId.current = c.id
               pristine.current = false
-              setSpec(c.spec)
+              setSpec({ ...c.spec, locale: lang })
               setStep(3)
               go('editor')
             }}
@@ -395,7 +448,7 @@ export function App() {
                 upsertSaved({
                   ...c,
                   id: newId(),
-                  name: `${c.name} (copia)`,
+                  name: `${c.name} (${L('copia', 'copy')})`,
                   savedAt: new Date().toISOString(),
                 }),
               )
@@ -442,40 +495,51 @@ function Saved({
     <div className="mx-auto max-w-7xl px-4 py-12 md:px-6">
       <div className="mb-10 flex flex-wrap items-end justify-between gap-6">
         <div>
-          <h1 className="mb-3 text-3xl font-bold tracking-[-0.03em] md:text-5xl">mis gráficas</h1>
+          <h1 className="mb-3 text-3xl font-bold tracking-[-0.03em] md:text-5xl">
+            {L('mis gráficas', 'my charts')}
+          </h1>
           <p className="max-w-2xl text-white-80">
-            lo que editas se guarda solo en este navegador. no se envía a ningún sitio.
+            {L(
+              'lo que editas se guarda solo en este navegador. no se envía a ningún sitio.',
+              'what you edit is saved only in this browser. it is not sent anywhere.',
+            )}
           </p>
         </div>
         <Button solid onClick={onNew}>
-          crear desde cero
+          {L('crear desde cero', 'start from scratch')}
         </Button>
       </div>
       {saved.length === 0 ? (
         <p className="py-20 text-center text-white-50">
-          todavía no has editado ninguna gráfica. abre una de la galería o crea una desde cero.
+          {L(
+            'todavía no has editado ninguna gráfica. abre una de la galería o crea una desde cero.',
+            'you have not edited any chart yet. open one from the gallery or start from scratch.',
+          )}
         </p>
       ) : (
         <div className="grid gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
           {saved.map((c) => (
             <div key={c.id}>
-              <Card onClick={() => onOpen(c)} title="seguir editando">
+              <Card onClick={() => onOpen(c)} title={L('seguir editando', 'keep editing')}>
                 <LazyPoster data={data} spec={{ ...c.spec, format: 'landscape' }} />
               </Card>
               <div className="mt-2.5 flex items-baseline justify-between gap-3">
                 <p className="truncate text-sm font-semibold lowercase">{c.name}</p>
                 <span className="flex shrink-0 gap-3 text-xs text-white-50">
                   <button className="hover:text-white" onClick={() => onDuplicate(c)}>
-                    duplicar
+                    {L('duplicar', 'duplicate')}
                   </button>
                   <button className="hover:text-white" onClick={() => onRemove(c)}>
-                    borrar
+                    {L('borrar', 'delete')}
                   </button>
                 </span>
               </div>
               <p className="text-xs text-white-50">
-                editada el{' '}
-                {new Date(c.savedAt).toLocaleDateString('es', { day: 'numeric', month: 'short' })}
+                {L('editada el', 'edited on')}{' '}
+                {new Date(c.savedAt).toLocaleDateString(getLang(), {
+                  day: 'numeric',
+                  month: 'short',
+                })}
               </p>
             </div>
           ))}
@@ -488,13 +552,16 @@ function Saved({
 function Footer({ data }: { data: Dataset }) {
   const other =
     BRAND.id === 'aaa'
-      ? { href: `${import.meta.env.BASE_URL}laaabs/`, label: 'edición laaabs.' }
-      : { href: import.meta.env.BASE_URL, label: 'edición aaa.' }
+      ? {
+          href: `${import.meta.env.BASE_URL}laaabs/`,
+          label: L('edición laaabs.', 'laaabs. edition'),
+        }
+      : { href: import.meta.env.BASE_URL, label: L('edición aaa.', 'aaa. edition') }
   return (
     <footer className="border-t border-white-20 px-4 py-8 text-xs text-white-50 md:px-6">
       <div className="mx-auto flex max-w-7xl flex-wrap items-start justify-between gap-6">
         <p className="max-w-xl">
-          datos de{' '}
+          {L('datos de', 'data from')}{' '}
           {data.sources
             .filter((s) => s.ok && s.id !== 'manual')
             .map((s, i, a) => (
@@ -510,7 +577,7 @@ function Footer({ data }: { data: Dataset }) {
                 {i < a.length - 1 ? ', ' : '. '}
               </span>
             ))}
-          cada gráfica cita las fuentes que usa.
+          {L('cada gráfica cita las fuentes que usa.', 'every chart credits the sources it uses.')}
         </p>
         <div className="flex gap-5">
           <a href={other.href} className="hover:text-white">
@@ -522,7 +589,7 @@ function Footer({ data }: { data: Dataset }) {
             rel="noreferrer"
             className="hover:text-white"
           >
-            código abierto
+            {L('código abierto', 'open source')}
           </a>
           <a href={BRAND.home} target="_blank" rel="noreferrer" className="hover:text-white">
             {BRAND.domain}
@@ -550,24 +617,28 @@ function DataBadge({
   const mins = Math.round((Date.now() - Date.parse(data.generatedAt)) / 60_000)
   const ago =
     mins < 1
-      ? 'ahora'
+      ? L('ahora', 'just now')
       : mins < 60
-        ? `hace ${mins} min`
+        ? L(`hace ${mins} min`, `${mins} min ago`)
         : mins < 48 * 60
-          ? `hace ${Math.round(mins / 60)} h`
-          : `hace ${Math.round(mins / 1440)} días`
+          ? L(`hace ${Math.round(mins / 60)} h`, `${Math.round(mins / 60)} h ago`)
+          : L(`hace ${Math.round(mins / 1440)} días`, `${Math.round(mins / 1440)} days ago`)
   return (
     <div
       className="hidden items-center gap-2 text-xs text-white-50 md:flex"
-      title={`datos generados el ${new Date(data.generatedAt).toLocaleString('es')}`}
+      title={`${L('datos generados el', 'data generated on')} ${new Date(data.generatedAt).toLocaleString(getLang())}`}
     >
-      <span>{status?.running ? 'actualizando datos...' : `datos ${ago}`}</span>
+      <span>
+        {status?.running
+          ? L('actualizando datos...', 'refreshing data...')
+          : `${L('datos', 'data')} ${ago}`}
+      </span>
       {status && !status.running && (
         <button
           onClick={onRefresh}
           className="rounded-full border border-white-30 px-2.5 py-0.5 font-semibold text-white-80 hover:border-white hover:text-white"
         >
-          actualizar
+          {L('actualizar', 'refresh')}
         </button>
       )}
     </div>
@@ -590,8 +661,11 @@ function Preview({
         <InteractivePoster data={data} spec={spec} onSelect={onSelect} />
       </div>
       <p className="mt-3 text-center text-xs text-white-50">
-        {w}×{h}, {FORMATS[spec.format].hint}. pasa el ratón por un punto o una barra para ver sus
-        datos.
+        {w}×{h}, {FORMATS[spec.format].hint}.{' '}
+        {L(
+          'pasa el ratón por un punto o una barra para ver sus datos.',
+          'hover a point or a bar to see its numbers.',
+        )}
       </p>
     </div>
   )

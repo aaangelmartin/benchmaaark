@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { formatDate, formatValue } from '../lib/format.ts'
+import { getLang, L } from '../lib/lang.ts'
 import type { Dataset } from '../lib/types.ts'
 import { inputClass, Select } from './ui.tsx'
 
@@ -26,9 +27,13 @@ export function DataView({ data, onSelect }: { data: Dataset; onSelect: (id: str
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-12 md:px-6">
-      <h1 className="mb-8 text-2xl font-bold tracking-[-0.03em] md:text-4xl">modelos y fuentes</h1>
+      <h1 className="mb-8 text-2xl font-bold tracking-[-0.03em] md:text-4xl">
+        {L('modelos y fuentes', 'models and sources')}
+      </h1>
 
-      <h2 className="mb-4 text-xs font-semibold tracking-widest text-white-50">fuentes</h2>
+      <h2 className="mb-4 text-xs font-semibold tracking-widest text-white-50">
+        {L('fuentes', 'sources')}
+      </h2>
       <div className="mb-12 divide-y divide-white-20 border-y border-white-20">
         {data.sources.map((s) => (
           <div
@@ -45,8 +50,8 @@ export function DataView({ data, onSelect }: { data: Dataset; onSelect: (id: str
             </a>
             <span className="text-white-50 lowercase">
               {s.ok
-                ? `${s.license}, ${s.fetchedAt ? formatDate(s.fetchedAt, 'es') : '-'}`
-                : `sin datos${s.note ? `: ${s.note}` : ''}`}
+                ? `${s.license}, ${s.fetchedAt ? formatDate(s.fetchedAt, getLang()) : '-'}`
+                : `${L('sin datos', 'no data')}${s.note ? `: ${s.note}` : ''}`}
             </span>
           </div>
         ))}
@@ -56,7 +61,10 @@ export function DataView({ data, onSelect }: { data: Dataset; onSelect: (id: str
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder={`buscar entre ${data.models.filter((m) => !m.family).length} modelos`}
+          placeholder={L(
+            `buscar entre ${data.models.filter((m) => !m.family).length} modelos`,
+            `search ${data.models.filter((m) => !m.family).length} models`,
+          )}
           className={inputClass}
         />
         <Select
@@ -64,10 +72,10 @@ export function DataView({ data, onSelect }: { data: Dataset; onSelect: (id: str
           onChange={setMetric}
           groups={[
             {
-              label: 'métrica',
+              label: L('métrica', 'metric'),
               options: data.metrics.map((m) => ({
                 value: m.id,
-                label: `${m.short.es} (${m.count})`,
+                label: `${m.short[getLang()]} (${m.count})`,
               })),
             },
           ]}
@@ -76,12 +84,12 @@ export function DataView({ data, onSelect }: { data: Dataset; onSelect: (id: str
       <table className="w-full text-sm">
         <thead className="text-left text-xs text-white-50">
           <tr className="border-b border-white-50">
-            <th className="py-2 font-semibold">modelo</th>
-            <th className="font-semibold">laboratorio</th>
-            <th className="font-semibold">lanzamiento</th>
-            <th className="text-right font-semibold">{def?.short.es}</th>
-            <th className="text-right font-semibold">métricas</th>
-            <th className="pl-4 font-semibold">fuentes</th>
+            <th className="py-2 font-semibold">{L('modelo', 'model')}</th>
+            <th className="font-semibold">{L('laboratorio', 'lab')}</th>
+            <th className="font-semibold">{L('lanzamiento', 'release')}</th>
+            <th className="text-right font-semibold">{def?.short[getLang()]}</th>
+            <th className="text-right font-semibold">{L('métricas', 'metrics')}</th>
+            <th className="pl-4 font-semibold">{L('fuentes', 'sources')}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-white-20">

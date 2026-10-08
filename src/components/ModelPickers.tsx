@@ -8,6 +8,7 @@ import { createPortal } from 'react-dom'
 import { type ChartSpec, requiredMetrics, type Resolved, seriesKey } from '../charts/spec.ts'
 import { effortRank } from '../lib/effort.ts'
 import { formatValue } from '../lib/format.ts'
+import { getLang, L } from '../lib/lang.ts'
 import type { Dataset, MetricDef, Model } from '../lib/types.ts'
 import { LabLogo } from './LabLogo.tsx'
 import { inputClass } from './ui.tsx'
@@ -234,16 +235,18 @@ function ModelRow({ p, m, showLab }: { p: Picker; m: Model; showLab?: boolean })
         {effs.length > 1 && (
           <button
             onClick={() => setOpen(!open)}
-            title="elegir niveles de esfuerzo"
+            title={L('elegir niveles de esfuerzo', 'pick effort levels')}
             className={`shrink-0 rounded-full px-1.5 text-[0.65rem] font-semibold ${picked.length ? 'bg-solid text-on-solid' : 'border border-white-30 text-white-50 hover:text-white'}`}
           >
-            {picked.length ? `${picked.length}/${effs.length}` : `${effs.length} esf.`}
+            {picked.length
+              ? `${picked.length}/${effs.length}`
+              : `${effs.length} ${L('esf.', 'eff.')}`}
           </button>
         )}
         {val && <span className="shrink-0 text-xs font-semibold text-white-80">{val}</span>}
         <button
           onClick={() => p.star(m.id)}
-          title={starred ? 'quitar destacado' : 'destacar'}
+          title={starred ? L('quitar destacado', 'remove highlight') : L('destacar', 'highlight')}
           className={`shrink-0 ${starred ? 'text-white' : 'text-white-30 hover:text-white'}`}
         >
           <Star on={starred} />
@@ -301,14 +304,16 @@ export function LinesPicker({ p }: { p: Picker }) {
   return (
     <div className="space-y-4">
       <div>
-        <p className="mb-1.5 text-xs text-white-50">al pulsar una versión</p>
+        <p className="mb-1.5 text-xs text-white-50">
+          {L('al pulsar una versión', 'when you click a version')}
+        </p>
         <Seg
           value={mode}
           onChange={setMode}
           options={[
-            ['show', 'mostrar u ocultar'],
-            ['star', 'destacar'],
-            ['effort', 'elegir esfuerzos'],
+            ['show', L('mostrar u ocultar', 'show or hide')],
+            ['star', L('destacar', 'highlight')],
+            ['effort', L('elegir esfuerzos', 'pick efforts')],
           ]}
         />
       </div>
@@ -338,7 +343,7 @@ export function LinesPicker({ p }: { p: Picker }) {
                   )
                 }
               >
-                ninguno
+                {L('ninguno', 'none')}
               </button>
             </LabHead>
             <div className="space-y-1.5">
@@ -375,7 +380,10 @@ export function LinesPicker({ p }: { p: Picker }) {
                         <EffortChips p={p} m={ms.find((m) => m.id === effortFor)!} />
                       ) : (
                         <span className="text-xs text-white-50">
-                          este modelo solo tiene un nivel de esfuerzo en esta métrica.
+                          {L(
+                            'este modelo solo tiene un nivel de esfuerzo en esta métrica.',
+                            'this model has a single effort level on this metric.',
+                          )}
                         </span>
                       )}
                     </div>
@@ -389,8 +397,8 @@ export function LinesPicker({ p }: { p: Picker }) {
                 className="text-xs text-white-50 hover:text-white"
               >
                 {expanded
-                  ? 'solo líneas actuales'
-                  : `ver líneas anteriores (${rows.length - live.length})`}
+                  ? L('solo líneas actuales', 'current lines only')
+                  : `${L('ver líneas anteriores', 'show earlier lines')} (${rows.length - live.length})`}
               </button>
             )}
           </div>
@@ -464,7 +472,7 @@ export function TablePicker({ p }: { p: Picker }) {
         onClick={() => setOpen(true)}
         className="w-full rounded-xl border border-white-50 py-3 text-sm font-semibold hover:border-white"
       >
-        abrir la tabla de modelos
+        {L('abrir la tabla de modelos', 'open the model table')}
       </button>
       <div className="flex flex-wrap gap-1.5">
         {on.map((m) => (
@@ -477,13 +485,17 @@ export function TablePicker({ p }: { p: Picker }) {
             <button
               className="opacity-60 hover:opacity-100"
               onClick={() => p.toggle(m.id)}
-              aria-label="quitar"
+              aria-label={L('quitar', 'remove')}
             >
               ×
             </button>
           </span>
         ))}
-        {on.length === 0 && <span className="text-sm text-white-50">ningún modelo marcado.</span>}
+        {on.length === 0 && (
+          <span className="text-sm text-white-50">
+            {L('ningún modelo marcado.', 'no model picked.')}
+          </span>
+        )}
       </div>
 
       {/* on the page itself: inside the sidebar it would be clipped by it */}
@@ -496,23 +508,25 @@ export function TablePicker({ p }: { p: Picker }) {
                   autoFocus
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
-                  placeholder="buscar modelo o laboratorio"
+                  placeholder={L('buscar modelo o laboratorio', 'search model or lab')}
                   className={`${inputClass} !w-64`}
                 />
                 <Seg
                   value={all ? 'all' : 'rec'}
                   onChange={(v) => setAll(v === 'all')}
                   options={[
-                    ['rec', 'últimos de cada línea'],
-                    ['all', 'todos'],
+                    ['rec', L('últimos de cada línea', 'latest of each line')],
+                    ['all', L('todos', 'all')],
                   ]}
                 />
-                <span className="text-sm text-white-50">{on.length} marcados</span>
+                <span className="text-sm text-white-50">
+                  {on.length} {L('marcados', 'picked')}
+                </span>
                 <button
                   onClick={() => setOpen(false)}
                   className="ml-auto rounded-full bg-solid px-5 py-2 text-sm font-semibold text-on-solid"
                 >
-                  listo
+                  {L('listo', 'done')}
                 </button>
               </div>
               <div className="scrollbar-thin mx-auto mt-3 flex max-w-6xl gap-1.5 overflow-x-auto pb-1">
@@ -520,7 +534,7 @@ export function TablePicker({ p }: { p: Picker }) {
                   onClick={() => setLabs([])}
                   className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${labs.length === 0 ? 'bg-solid text-on-solid' : 'border border-white-30 text-white-80'}`}
                 >
-                  todos los laboratorios
+                  {L('todos los laboratorios', 'all labs')}
                 </button>
                 {p.labs.map((l) => (
                   <button
@@ -540,15 +554,17 @@ export function TablePicker({ p }: { p: Picker }) {
               <table className="mx-auto w-full max-w-6xl text-sm">
                 <thead className="sticky top-0 bg-bg text-xs text-white-50">
                   <tr className="border-b border-white-50">
-                    <Th col="on">en la gráfica</Th>
-                    <Th col="name">modelo</Th>
-                    <Th col="lab">laboratorio</Th>
-                    <Th col="release">lanzamiento</Th>
+                    <Th col="on">{L('en la gráfica', 'on the chart')}</Th>
+                    <Th col="name">{L('modelo', 'model')}</Th>
+                    <Th col="lab">{L('laboratorio', 'lab')}</Th>
+                    <Th col="release">{L('lanzamiento', 'release')}</Th>
                     <Th col="value" right>
-                      {p.rankDef?.short.es.toLowerCase() ?? 'valor'}
+                      {p.rankDef?.short[getLang()].toLowerCase() ?? L('valor', 'value')}
                     </Th>
-                    <th className="py-2 pl-6 text-left font-semibold">esfuerzos</th>
-                    <th className="py-2 text-right font-semibold">destacar</th>
+                    <th className="py-2 pl-6 text-left font-semibold">
+                      {L('esfuerzos', 'efforts')}
+                    </th>
+                    <th className="py-2 text-right font-semibold">{L('destacar', 'highlight')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white-10">
@@ -561,7 +577,7 @@ export function TablePicker({ p }: { p: Picker }) {
                           <button
                             onClick={() => p.toggle(m.id)}
                             className="flex items-center"
-                            aria-label="mostrar"
+                            aria-label={L('mostrar', 'show')}
                           >
                             <Dot on={isOn} />
                           </button>
@@ -591,7 +607,7 @@ export function TablePicker({ p }: { p: Picker }) {
                                 className="text-xs text-white-50 underline hover:text-white"
                                 onClick={() => setEffortFor(m.id)}
                               >
-                                {effs.length} niveles
+                                {effs.length} {L('niveles', 'levels')}
                               </button>
                             )
                           ) : (
@@ -604,7 +620,7 @@ export function TablePicker({ p }: { p: Picker }) {
                             className={
                               p.isStar(m) ? 'text-white' : 'text-white-30 hover:text-white'
                             }
-                            aria-label="destacar"
+                            aria-label={L('destacar', 'highlight')}
                           >
                             <Star on={p.isStar(m)} />
                           </button>
@@ -615,7 +631,9 @@ export function TablePicker({ p }: { p: Picker }) {
                 </tbody>
               </table>
               {rows.length === 0 && (
-                <p className="py-16 text-center text-white-50">nada coincide.</p>
+                <p className="py-16 text-center text-white-50">
+                  {L('nada coincide.', 'nothing matches.')}
+                </p>
               )}
             </div>
           </div>,
@@ -631,7 +649,12 @@ export function RailPicker({ p }: { p: Picker }) {
   const [lab, setLab] = useState<string | null>(null)
   const [all, setAll] = useState(false)
   const active = lab && p.labs.includes(lab) ? lab : p.labs[0]
-  if (!active) return <p className="text-sm text-white-50">ningún modelo tiene estos datos.</p>
+  if (!active)
+    return (
+      <p className="text-sm text-white-50">
+        {L('ningún modelo tiene estos datos.', 'no model has this data.')}
+      </p>
+    )
   const list = p.models(active, all)
   const total = p.models(active, true)
   return (
@@ -669,7 +692,7 @@ export function RailPicker({ p }: { p: Picker }) {
               )
             }
           >
-            todos
+            {L('todos', 'all')}
           </button>
           <button
             className="hover:text-white"
@@ -680,7 +703,7 @@ export function RailPicker({ p }: { p: Picker }) {
               )
             }
           >
-            ninguno
+            {L('ninguno', 'none')}
           </button>
         </LabHead>
         <div className="space-y-1">
@@ -691,8 +714,11 @@ export function RailPicker({ p }: { p: Picker }) {
         {total.length > list.length || all ? (
           <button onClick={() => setAll(!all)} className="text-xs text-white-50 hover:text-white">
             {all
-              ? 'solo los últimos de cada línea'
-              : `ver los ${total.length} modelos de ${p.labName(active).toLowerCase()}`}
+              ? L('solo los últimos de cada línea', 'only the latest of each line')
+              : L(
+                  `ver los ${total.length} modelos de ${p.labName(active).toLowerCase()}`,
+                  `show all ${total.length} models from ${p.labName(active).toLowerCase()}`,
+                )}
           </button>
         ) : null}
       </div>

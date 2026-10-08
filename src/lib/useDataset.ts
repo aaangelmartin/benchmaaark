@@ -26,7 +26,8 @@ export function useDataset() {
       setData(await r.json())
       setError(null)
     } catch {
-      setError('todavía no hay datos. se están descargando, espera un momento.')
+      // a flag, not a message: the app words it in the current language
+      setError('no-data')
     }
   }, [])
 

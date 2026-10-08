@@ -16,6 +16,7 @@ import {
   resolve,
 } from '../charts/spec.ts'
 import type { Shape } from '../charts/theme.ts'
+import { getLang, L } from '../lib/lang.ts'
 import type { Dataset, MetricDef, SourceId } from '../lib/types.ts'
 import { LabLogo } from './LabLogo.tsx'
 import {
@@ -29,12 +30,29 @@ import { Field, inputClass, Pills, Toggle } from './ui.tsx'
 
 const CYAN = '#00b5e2'
 
-const TYPES: Array<{ value: ChartType; label: string; hint: string }> = [
-  { value: 'bars', label: 'ranking', hint: 'quién va primero' },
-  { value: 'scatter', label: 'dispersión', hint: 'dos métricas cruzadas' },
-  { value: 'timeline', label: 'evolución', hint: 'cómo avanza en el tiempo' },
-  { value: 'table', label: 'tabla', hint: 'resumen con números' },
-  { value: 'compare', label: 'comparativa', hint: 'pocos modelos, varias métricas' },
+// built per render so the labels follow the language
+const types = (): Array<{ value: ChartType; label: string; hint: string }> => [
+  { value: 'bars', label: 'ranking', hint: L('quién va primero', 'who comes first') },
+  {
+    value: 'scatter',
+    label: L('dispersión', 'scatter'),
+    hint: L('dos métricas cruzadas', 'two metrics against each other'),
+  },
+  {
+    value: 'timeline',
+    label: L('evolución', 'over time'),
+    hint: L('cómo avanza en el tiempo', 'how it moves over time'),
+  },
+  {
+    value: 'table',
+    label: L('tabla', 'table'),
+    hint: L('resumen con números', 'summary in numbers'),
+  },
+  {
+    value: 'compare',
+    label: L('comparativa', 'comparison'),
+    hint: L('pocos modelos, varias métricas', 'a few models, several metrics'),
+  },
 ]
 
 export type Step = 1 | 2 | 3 | 4
@@ -62,8 +80,9 @@ export function Editor({
     onChange({ ...spec, filter: { ...spec.filter, ...patch } })
   const setO = (patch: Partial<ChartSpec['options']>) =>
     onChange({ ...spec, options: { ...spec.options, ...patch } })
-  const L = spec.locale
-  const short = (id: string) => metricById.get(id)?.short.es ?? id
+  const loc = spec.locale
+  const TYPES = types()
+  const short = (id: string) => metricById.get(id)?.short[getLang()] ?? id
   const multi = spec.type === 'compare' || spec.type === 'table'
   const toggle = (s: Step) => onStep(step === s ? null : s)
 
@@ -75,7 +94,7 @@ export function Editor({
         : short(spec.y)
   const labSummary = spec.filter.labs.length
     ? spec.filter.labs.map((l) => labName.get(l) ?? l).join(', ')
-    : 'todos'
+    : L('todos', 'all')
 
   return (
     <div className="pb-24">
@@ -85,7 +104,7 @@ export function Editor({
 
       <StepBox
         n={1}
-        title="gráfica y fuente"
+        title={L('gráfica y fuente', 'chart and source')}
         summary={`${TYPES.find((t) => t.value === spec.type)?.label}: ${metricSummary}`}
         open={step === 1}
         onToggle={() => toggle(1)}
@@ -115,7 +134,7 @@ export function Editor({
 
       <StepBox
         n={2}
-        title="laboratorios"
+        title={L('laboratorios', 'labs')}
         summary={labSummary}
         open={step === 2}
         onToggle={() => toggle(2)}
@@ -126,8 +145,8 @@ export function Editor({
 
       <StepBox
         n={3}
-        title="modelos"
-        summary={`${r.shown.size} en la gráfica${spec.highlight.length ? `, ${spec.highlight.length} destacados` : ''}`}
+        title={L('modelos', 'models')}
+        summary={`${r.shown.size} ${L('en la gráfica', 'on the chart')}${spec.highlight.length ? `, ${spec.highlight.length} ${L('destacados', 'highlighted')}` : ''}`}
         open={step === 3}
         onToggle={() => toggle(3)}
         onNext={() => onStep(4)}
@@ -137,12 +156,12 @@ export function Editor({
 
       <StepBox
         n={4}
-        title="aspecto"
-        summary={`${FORMATS[spec.format].label}, ${spec.locale === 'es' ? 'español' : 'english'}`}
+        title={L('aspecto', 'look')}
+        summary={`${FORMATS[spec.format].label}, ${FORMATS[spec.format].hint}`}
         open={step === 4}
         onToggle={() => toggle(4)}
       >
-        <Group title="formato">
+        <Group title={L('formato', 'format')}>
           <div className="grid grid-cols-5 gap-2">
             {(Object.keys(FORMATS) as FormatId[]).map((f) => {
               const { w, h, label, hint } = FORMATS[f]
@@ -173,90 +192,80 @@ export function Editor({
             })}
           </div>
           <p className="text-xs text-white-50">{FORMATS[spec.format].hint}</p>
-          <Row label="idioma">
-            <Pills
-              value={spec.locale}
-              options={[
-                { value: 'es', label: 'español' },
-                { value: 'en', label: 'english' },
-              ]}
-              onChange={(v) => set({ locale: v })}
-            />
-          </Row>
         </Group>
 
-        <Group title="texto">
-          <Field label="título">
+        <Group title={L('texto', 'text')}>
+          <Field label={L('título', 'title')}>
             <input
               className={inputClass}
-              value={spec.title?.[L] ?? ''}
-              placeholder="automático"
+              value={spec.title?.[loc] ?? ''}
+              placeholder={L('automático', 'automatic')}
               onChange={(e) => setText(spec, onChange, 'title', e.target.value)}
             />
           </Field>
-          <Field label="subtítulo">
+          <Field label={L('subtítulo', 'subtitle')}>
             <textarea
               className={`${inputClass} min-h-16 resize-y`}
-              value={spec.subtitle?.[L] ?? ''}
-              placeholder="opcional"
+              value={spec.subtitle?.[loc] ?? ''}
+              placeholder={L('opcional', 'optional')}
               onChange={(e) => setText(spec, onChange, 'subtitle', e.target.value)}
             />
           </Field>
           <Toggle
-            label="todo en minúsculas"
+            label={L('todo en minúsculas', 'all lowercase')}
             checked={spec.options.lowercase}
             onChange={(v) => setO({ lowercase: v })}
           />
         </Group>
 
-        <Group title="estilo">
+        <Group title={L('estilo', 'style')}>
           {(spec.type === 'scatter' || spec.type === 'timeline') && (
-            <Field label="forma de los puntos">
+            <Field label={L('forma de los puntos', 'point shape')}>
               <Pills
                 value={spec.options.series}
                 options={[
-                  { value: 'lab', label: 'una por laboratorio' },
-                  { value: 'weights', label: 'abiertos / cerrados' },
-                  { value: 'none', label: 'todas iguales' },
+                  { value: 'lab', label: L('una por laboratorio', 'one per lab') },
+                  { value: 'weights', label: L('abiertos / cerrados', 'open / closed') },
+                  { value: 'none', label: L('todas iguales', 'all the same') },
                 ]}
                 onChange={(v) => setO({ series: v })}
               />
             </Field>
           )}
           {!multi && (
-            <Field label="opacidad">
+            <Field label={L('opacidad', 'opacity')}>
               <Pills
                 value={spec.options.color}
                 options={[
-                  { value: 'model', label: 'una por modelo' },
-                  { value: 'lab', label: 'una por laboratorio' },
-                  { value: 'none', label: 'sin variar' },
+                  { value: 'model', label: L('una por modelo', 'one per model') },
+                  { value: 'lab', label: L('una por laboratorio', 'one per lab') },
+                  { value: 'none', label: L('sin variar', 'no variation') },
                 ]}
                 onChange={(v) => setO({ color: v })}
               />
             </Field>
           )}
           {(spec.type === 'scatter' || spec.type === 'timeline') && (
-            <Field label="etiquetas">
+            <Field label={L('etiquetas', 'labels')}>
               <Pills
                 value={spec.options.labels}
                 options={[
-                  { value: 'auto', label: 'las que caben' },
-                  { value: 'all', label: 'todas' },
-                  { value: 'highlight', label: 'solo destacados' },
-                  { value: 'none', label: 'ninguna' },
+                  { value: 'auto', label: L('las que caben', 'the ones that fit') },
+                  { value: 'all', label: L('todas', 'all') },
+                  { value: 'highlight', label: L('solo destacados', 'highlighted only') },
+                  { value: 'none', label: L('ninguna', 'none') },
                 ]}
                 onChange={(v) => setO({ labels: v })}
               />
             </Field>
           )}
           {spec.type === 'bars' && (
-            <Field label="orden">
+            <Field label={L('orden', 'order')}>
               <Pills
                 value={spec.options.sort}
                 options={[
-                  { value: 'best', label: 'mejor arriba' },
-                  { value: 'worst', label: 'peor arriba' },
+                  { value: 'best', label: L('mejor arriba', 'best on top') },
+                  { value: 'worst', label: L('peor arriba', 'worst on top') },
                 ]}
                 onChange={(v) => setO({ sort: v })}
               />
@@ -264,28 +273,32 @@ export function Editor({
           )}
           {(spec.type === 'scatter' || spec.type === 'timeline') && (
             <Toggle
-              label={spec.type === 'scatter' ? 'línea de frontera de pareto' : 'línea de récords'}
+              label={
+                spec.type === 'scatter'
+                  ? L('línea de frontera de pareto', 'pareto frontier line')
+                  : L('línea de récords', 'record line')
+              }
               checked={spec.options.frontier}
               onChange={(v) => setO({ frontier: v })}
             />
           )}
           {spec.type === 'scatter' && (
             <Toggle
-              label="eje horizontal logarítmico"
+              label={L('eje horizontal logarítmico', 'logarithmic horizontal axis')}
               checked={spec.options.logX}
               onChange={(v) => setO({ logX: v })}
             />
           )}
           {(spec.type === 'scatter' || spec.type === 'timeline') && (
             <Toggle
-              label="eje vertical logarítmico"
+              label={L('eje vertical logarítmico', 'logarithmic vertical axis')}
               checked={spec.options.logY}
               onChange={(v) => setO({ logY: v })}
             />
           )}
           {(spec.type === 'bars' || spec.type === 'table') && (
             <Toggle
-              label="laboratorio bajo cada modelo"
+              label={L('laboratorio bajo cada modelo', 'lab under each model')}
               checked={spec.options.showLab}
               onChange={(v) => setO({ showLab: v })}
             />
@@ -311,15 +324,6 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="space-y-3 border-t border-white-20 pt-4 first:border-t-0 first:pt-0">
       <h4 className="text-xs font-semibold tracking-widest text-white-50">{title}</h4>
-      {children}
-    </div>
-  )
-}
-
-function Row({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-sm text-white-80">{label}</span>
       {children}
     </div>
   )
@@ -380,7 +384,7 @@ function StepBox({
               onClick={onNext}
               className="w-full rounded-full border border-white-30 py-2 text-sm font-semibold text-white-80 hover:border-white hover:text-white"
             >
-              siguiente
+              {L('siguiente', 'next')}
             </button>
           )}
         </div>
@@ -469,10 +473,12 @@ function MetricChooser({
               className={`rounded-xl border p-2.5 text-left ${slot === k ? 'border-white' : 'border-white-20'}`}
             >
               <span className="block text-[0.65rem] tracking-widest text-white-50">
-                {k === 'y' ? 'eje vertical' : 'eje horizontal'}
+                {k === 'y'
+                  ? L('eje vertical', 'vertical axis')
+                  : L('eje horizontal', 'horizontal axis')}
               </span>
               <span className="block truncate text-sm font-semibold lowercase">
-                {byId.get(spec[k])?.short.es ?? spec[k]}
+                {byId.get(spec[k])?.short[getLang()] ?? spec[k]}
               </span>
             </button>
           ))}
@@ -480,15 +486,16 @@ function MetricChooser({
       )}
       {multi && (
         <p className="text-xs text-white-50">
-          columnas, en el orden en que las marcas:{' '}
+          {L('columnas, en el orden en que las marcas:', 'columns, in the order you pick them:')}{' '}
           <span className="text-white-80 lowercase">
-            {spec.metrics.map((id) => byId.get(id)?.short.es ?? id).join(', ') || 'ninguna'}
+            {spec.metrics.map((id) => byId.get(id)?.short[getLang()] ?? id).join(', ') ||
+              L('ninguna', 'none')}
           </span>
         </p>
       )}
 
       <div>
-        <p className="mb-1.5 text-xs tracking-widest text-white-50">fuente</p>
+        <p className="mb-1.5 text-xs tracking-widest text-white-50">{L('fuente', 'source')}</p>
         <div className="flex flex-wrap gap-1.5">
           {sources.map((s) => (
             <button
@@ -506,16 +513,16 @@ function MetricChooser({
       </div>
 
       <div>
-        <p className="mb-1.5 text-xs tracking-widest text-white-50">métrica</p>
+        <p className="mb-1.5 text-xs tracking-widest text-white-50">{L('métrica', 'metric')}</p>
         <div className="grid grid-cols-2 gap-1.5">
           {shown.map((m) => (
             <button
               key={m.id}
               onClick={() => pick(m)}
-              title={m.label.es + (m.description ? `. ${m.description.es}` : '')}
+              title={m.label[getLang()] + (m.description ? `. ${m.description[getLang()]}` : '')}
               className={`flex items-baseline justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors ${isOn(m) ? 'border-solid-line bg-solid text-on-solid' : 'border-white-20 hover:border-white-50'}`}
             >
-              <span className="truncate font-semibold lowercase">{m.short.es}</span>
+              <span className="truncate font-semibold lowercase">{m.short[getLang()]}</span>
               <span className={isOn(m) ? 'opacity-60' : 'text-white-50'}>{m.count}</span>
             </button>
           ))}
@@ -525,10 +532,20 @@ function MetricChooser({
             onClick={() => setMore(!more)}
             className="mt-2 text-xs text-white-50 hover:text-white"
           >
-            {more ? 'ver menos' : `ver las ${list.length} métricas de ${sourceName(source)}`}
+            {more
+              ? L('ver menos', 'show less')
+              : L(
+                  `ver las ${list.length} métricas de ${sourceName(source)}`,
+                  `show all ${list.length} metrics from ${sourceName(source)}`,
+                )}
           </button>
         )}
-        <p className="mt-2 text-xs text-white-50">el número es cuántos modelos tienen ese dato.</p>
+        <p className="mt-2 text-xs text-white-50">
+          {L(
+            'el número es cuántos modelos tienen ese dato.',
+            'the number is how many models have that value.',
+          )}
+        </p>
       </div>
     </div>
   )
@@ -563,10 +580,10 @@ function LabsStep({
     <div className="space-y-3">
       <div className="flex flex-wrap gap-1.5">
         <Pill on={sel.length === 0} onClick={() => onChange([])}>
-          todos
+          {L('todos', 'all')}
         </Pill>
         <Pill on={false} onClick={() => preset(['openai', 'anthropic', 'google', 'xai', 'meta'])}>
-          grandes
+          {L('grandes', 'big labs')}
         </Pill>
         <Pill
           on={false}
@@ -603,13 +620,16 @@ function LabsStep({
             ])
           }
         >
-          abiertos
+          {L('abiertos', 'open weights')}
         </Pill>
       </div>
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder={`buscar entre ${data.labs.length - 1} laboratorios`}
+        placeholder={L(
+          `buscar entre ${data.labs.length - 1} laboratorios`,
+          `search ${data.labs.length - 1} labs`,
+        )}
         className={inputClass}
       />
       <div className="scrollbar-thin grid max-h-[26rem] grid-cols-3 gap-2 overflow-y-auto pr-1">
@@ -625,7 +645,10 @@ function LabsStep({
               {on &&
                 spec.options.series === 'lab' &&
                 (spec.type === 'scatter' || spec.type === 'timeline') && (
-                  <span className="absolute top-1.5 right-1.5" title="su forma en la gráfica">
+                  <span
+                    className="absolute top-1.5 right-1.5"
+                    title={L('su forma en la gráfica', 'its shape on the chart')}
+                  >
                     <ShapeIcon shape={r.shapeOf(l.id)} color={CYAN} />
                   </span>
                 )}
@@ -634,15 +657,17 @@ function LabsStep({
                 {l.name}
               </span>
               <span className={`text-[0.65rem] ${on ? 'opacity-60' : 'text-white-50'}`}>
-                {n ? `${n} modelos` : 'sin datos'}
+                {n ? `${n} ${L('modelos', 'models')}` : L('sin datos', 'no data')}
               </span>
             </button>
           )
         })}
       </div>
       <p className="text-xs text-white-50">
-        sin ninguno marcado entran todos. "sin datos" significa que ese laboratorio no tiene la
-        métrica elegida.
+        {L(
+          'sin ninguno marcado entran todos. "sin datos" significa que ese laboratorio no tiene la métrica elegida.',
+          'with none picked, all labs are in. "no data" means that lab does not have the chosen metric.',
+        )}
       </p>
     </div>
   )
@@ -650,10 +675,28 @@ function LabsStep({
 
 // ---- 3. models --------------------------------------------------------------
 
-const PICKERS: Array<[PickerKind, string, string]> = [
-  ['lines', 'a · líneas', 'cada línea de cada laboratorio, un chip por versión'],
-  ['table', 'b · tabla', 'una tabla grande, ordenable, a pantalla completa'],
-  ['rail', 'c · carril', 'un laboratorio cada vez, con sus modelos en lista'],
+const pickers = (): Array<[PickerKind, string, string]> => [
+  [
+    'lines',
+    L('a · líneas', 'a · lines'),
+    L(
+      'cada línea de cada laboratorio, un chip por versión',
+      'every line of every lab, one chip per version',
+    ),
+  ],
+  [
+    'table',
+    L('b · tabla', 'b · table'),
+    L('una tabla grande, ordenable, a pantalla completa', 'one big sortable table, full screen'),
+  ],
+  [
+    'rail',
+    L('c · carril', 'c · rail'),
+    L(
+      'un laboratorio cada vez, con sus modelos en lista',
+      'one lab at a time, with its models in a list',
+    ),
+  ],
 ]
 
 function ModelsStep({
@@ -675,6 +718,7 @@ function ModelsStep({
     () => (localStorage.getItem('benchmaaark:picker') as PickerKind) || 'lines',
   )
   const p = usePicker(data, spec, r, onChange)
+  const PICKERS = pickers()
   const req = requiredMetrics(spec)
   const anyEfforts = useMemo(
     () => data.models.some((m) => m.family && req.every((id) => m.values[id] !== undefined)),
@@ -694,7 +738,12 @@ function ModelsStep({
     <div className="space-y-4">
       {/* temporary: three designs to try with real data before keeping one */}
       <div className="rounded-xl border border-dashed border-white-30 p-3">
-        <p className="mb-2 text-xs text-white-50">tres diseños para probar. dime cuál se queda.</p>
+        <p className="mb-2 text-xs text-white-50">
+          {L(
+            'tres diseños para probar. dime cuál se queda.',
+            'three designs to try. tell me which one stays.',
+          )}
+        </p>
         <div className="flex flex-wrap gap-1.5">
           {PICKERS.map(([k, label, hint]) => (
             <button
@@ -713,7 +762,7 @@ function ModelsStep({
       {(spec.type === 'scatter' || spec.type === 'bars' || spec.type === 'timeline') &&
         anyEfforts && (
           <Toggle
-            label="todos los niveles de esfuerzo, unidos"
+            label={L('todos los niveles de esfuerzo, unidos', 'every effort level, joined')}
             checked={spec.options.efforts === 'all'}
             onChange={(v) => setO({ efforts: v ? 'all' : 'best' })}
           />
@@ -722,8 +771,10 @@ function ModelsStep({
         spec.options.efforts === 'all' &&
         data.metrics.find((m) => m.id === spec.x)?.unit === 'usd_per_mtok' && (
           <p className="rounded-lg border border-white-30 p-2 text-xs text-white-80">
-            el precio por token es igual en todos los esfuerzos, así que saldrán en vertical. para
-            ver cuánto cuesta cada esfuerzo usa un coste por tarea en el eje horizontal.
+            {L(
+              'el precio por token es igual en todos los esfuerzos, así que saldrán en vertical. para ver cuánto cuesta cada esfuerzo usa un coste por tarea en el eje horizontal.',
+              'the price per token is the same at every effort, so they will stack vertically. to see what each effort costs, put a cost per task on the horizontal axis.',
+            )}
           </p>
         )}
       {touched > 0 && (
@@ -731,7 +782,7 @@ function ModelsStep({
           className="text-xs text-white-50 underline hover:text-white"
           onClick={() => setF({ include: [], exclude: [] })}
         >
-          volver a la selección inicial
+          {L('volver a la selección inicial', 'back to the initial selection')}
         </button>
       )}
 
@@ -766,7 +817,7 @@ function Pill({
 // the lab's marker as it appears on the chart; cyan when it sits on a white tile
 function ShapeIcon({ shape, color }: { shape: Shape; color?: string }) {
   return (
-    <svg width="14" height="14" viewBox="0 0 14 14" aria-label={`forma: ${shape}`}>
+    <svg width="14" height="14" viewBox="0 0 14 14" aria-label={`${L('forma', 'shape')}: ${shape}`}>
       <Marker shape={shape} x={7} y={7} r={4.5} color={color ?? '#ffffff'} />
     </svg>
   )

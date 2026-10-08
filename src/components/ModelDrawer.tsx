@@ -1,16 +1,18 @@
 import { useEffect, useMemo } from 'react'
 import { formatDate, formatValue } from '../lib/format.ts'
+import { getLang, L } from '../lib/lang.ts'
 import type { Dataset, MetricCategory } from '../lib/types.ts'
 import { Button } from './ui.tsx'
 
-const CATEGORY: Record<MetricCategory, string> = {
-  intelligence: 'inteligencia',
+// built per render so the labels follow the language
+const categories = (): Record<MetricCategory, string> => ({
+  intelligence: L('inteligencia', 'intelligence'),
   arena: 'arena',
   benchmark: 'benchmarks',
-  cost: 'coste',
-  speed: 'velocidad',
-  context: 'contexto',
-}
+  cost: L('coste', 'cost'),
+  speed: L('velocidad', 'speed'),
+  context: L('contexto', 'context'),
+})
 
 // full profile of one model: every metric with its rank among all models
 export function ModelDrawer({
@@ -49,6 +51,7 @@ export function ModelDrawer({
   }, [onClose])
 
   if (!m) return null
+  const CATEGORY = categories()
   const lab = data.labs.find((l) => l.id === m.lab)?.name ?? m.lab
   const groups = (Object.keys(CATEGORY) as MetricCategory[])
     .map((cat) => ({
@@ -74,19 +77,19 @@ export function ModelDrawer({
           onClick={onClose}
           className="absolute top-5 right-6 text-sm text-white-50 hover:text-white"
         >
-          cerrar
+          {L('cerrar', 'close')}
         </button>
         <p className="mb-1 text-xs tracking-widest text-white-50 lowercase">{lab}</p>
         <h2 className="mb-2 text-3xl font-bold tracking-[-0.03em] lowercase">{m.name}</h2>
         <p className="mb-6 text-sm text-white-80 lowercase">
           {[
             m.releaseDate
-              ? `lanzado el ${formatDate(m.releaseDate, 'es')}`
-              : 'sin fecha de lanzamiento',
+              ? `${L('lanzado el', 'released on')} ${formatDate(m.releaseDate, getLang())}`
+              : L('sin fecha de lanzamiento', 'no release date'),
             m.openWeights === true
-              ? 'pesos abiertos'
+              ? L('pesos abiertos', 'open weights')
               : m.openWeights === false
-                ? 'pesos cerrados'
+                ? L('pesos cerrados', 'closed weights')
                 : null,
           ]
             .filter(Boolean)
@@ -111,13 +114,13 @@ export function ModelDrawer({
                 const r = ranks.get(d.id)!
                 const pct = 1 - (r.rank - 1) / Math.max(1, r.of - 1)
                 return (
-                  <div key={d.id} title={d.label.es}>
+                  <div key={d.id} title={d.label[getLang()]}>
                     <div className="flex items-baseline justify-between gap-3 text-sm">
-                      <span className="text-white-80 lowercase">{d.short.es}</span>
+                      <span className="text-white-80 lowercase">{d.short[getLang()]}</span>
                       <span className="shrink-0">
                         <span className="font-bold">{formatValue(m.values[d.id], d.unit)}</span>
                         <span className="ml-2 text-xs text-white-50">
-                          #{r.rank} de {r.of}
+                          #{r.rank} {L('de', 'of')} {r.of}
                         </span>
                       </span>
                     </div>
@@ -134,7 +137,7 @@ export function ModelDrawer({
           </section>
         ))}
         <section className="border-t border-white-20 py-4 text-xs text-white-50">
-          <h3 className="mb-2 font-semibold tracking-widest">fuentes</h3>
+          <h3 className="mb-2 font-semibold tracking-widest">{L('fuentes', 'sources')}</h3>
           {Object.entries(m.refs).map(([src, ids]) => (
             <p key={src} className="break-all">
               <span className="text-white-80">

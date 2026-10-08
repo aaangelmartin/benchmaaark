@@ -11,7 +11,8 @@ import {
 } from '../charts/catalogue.ts'
 import { Poster } from '../charts/Poster.tsx'
 import { type ChartSpec, FORMATS, type FormatId } from '../charts/spec.ts'
-import type { Dataset, Locale, SourceId } from '../lib/types.ts'
+import { CAN_SWITCH_LANG, L, useLang } from '../lib/lang.ts'
+import type { Dataset, SourceId } from '../lib/types.ts'
 import { Button, inputClass, Pills } from './ui.tsx'
 
 // posters are only drawn once they scroll into view: there are a few hundred
@@ -60,21 +61,18 @@ export function Card({
 
 export function Gallery({
   data,
-  locale,
-  onLocale,
   onOpen,
   onNew,
   onExportAll,
   busy,
 }: {
   data: Dataset
-  locale: Locale
-  onLocale: (l: Locale) => void
   onOpen: (e: Entry) => void
   onNew: () => void
   onExportAll: (entries: Entry[], format: FormatId) => void
   busy: string | null
 }) {
+  const locale = useLang()
   const all = useMemo(() => catalogue(data), [data])
   const [source, setSource] = useState<SourceId | 'all'>('all')
   const [kind, setKind] = useState<Kind | 'all'>('all')
@@ -112,16 +110,23 @@ export function Gallery({
       <div className="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-6 px-4 pt-12 pb-10 md:px-6">
         <div>
           <h1 className="mb-3 text-3xl font-bold tracking-[-0.03em] md:text-5xl">
-            gráficas de modelos de ia
+            {L('gráficas de modelos de ia', 'charts of ai models')}
           </h1>
           <p className="max-w-2xl text-white-80">
-            {all.length} gráficas listas para publicar, con datos de{' '}
-            {sources.map(sourceName).join(', ')} actualizados cada 6 horas. elige una para ajustarla
-            o crea la tuya.
+            {all.length}{' '}
+            {L(
+              'gráficas listas para publicar, con datos de',
+              'charts ready to publish, with data from',
+            )}{' '}
+            {sources.map(sourceName).join(', ')}{' '}
+            {L(
+              'actualizados cada 6 horas. elige una para ajustarla o crea la tuya.',
+              'refreshed every 6 hours. pick one to adjust it or build your own.',
+            )}
           </p>
         </div>
         <Button solid onClick={onNew}>
-          crear desde cero
+          {L('crear desde cero', 'start from scratch')}
         </Button>
       </div>
 
@@ -129,9 +134,9 @@ export function Gallery({
       <div className="sticky top-14 z-20 mb-10 border-b border-white-20 bg-bg">
         <div className="mx-auto max-w-7xl space-y-3 px-4 py-3 md:px-6">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-            <FilterRow label="fuente">
+            <FilterRow label={L('fuente', 'source')}>
               <Chip on={source === 'all'} onClick={() => setSource('all')}>
-                todas <Num>{all.length}</Num>
+                {L('todas', 'all')} <Num>{all.length}</Num>
               </Chip>
               {sources.map((s) => (
                 <Chip key={s} on={source === s} onClick={() => setSource(s)}>
@@ -141,16 +146,16 @@ export function Gallery({
             </FilterRow>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-            <FilterRow label="tipo">
+            <FilterRow label={L('tipo', 'kind')}>
               <Chip on={kind === 'all'} onClick={() => setKind('all')}>
-                todos
+                {L('todos', 'all')}
               </Chip>
               <Chip on={kind === 'featured'} onClick={() => setKind('featured')}>
-                destacadas
+                {L('destacadas', 'featured')}
               </Chip>
               {kinds.map((k) => (
                 <Chip key={k} on={kind === k} onClick={() => setKind(k)}>
-                  {KIND_LABEL[k].es}
+                  {KIND_LABEL[k][locale]}
                 </Chip>
               ))}
             </FilterRow>
@@ -158,16 +163,8 @@ export function Gallery({
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="buscar gráfica"
+                placeholder={L('buscar gráfica', 'search charts')}
                 className={`${inputClass} !w-44 !rounded-full !py-1 text-xs`}
-              />
-              <Pills
-                value={locale}
-                options={[
-                  { value: 'es', label: 'es' },
-                  { value: 'en', label: 'en' },
-                ]}
-                onChange={onLocale}
               />
               <Pills
                 value={format}
@@ -181,11 +178,18 @@ export function Gallery({
               <Button
                 disabled={!!busy || shown.length === 0}
                 onClick={() => onExportAll(shown, format)}
-                title="descargar en un zip las gráficas que se ven ahora, en es y en"
+                title={
+                  CAN_SWITCH_LANG
+                    ? L(
+                        'descargar en un zip las gráficas que se ven ahora, en es y en',
+                        'download the charts on screen as a zip, in es and en',
+                      )
+                    : 'download the charts on screen as a zip'
+                }
               >
                 {busy?.startsWith('templates')
                   ? busy.replace('templates', 'zip')
-                  : `exportar ${shown.length}`}
+                  : `${L('exportar', 'export')} ${shown.length}`}
               </Button>
             </div>
           </div>
@@ -193,7 +197,9 @@ export function Gallery({
       </div>
 
       {shown.length === 0 && (
-        <p className="py-20 text-center text-white-50">ninguna gráfica con esos filtros.</p>
+        <p className="py-20 text-center text-white-50">
+          {L('ninguna gráfica con esos filtros.', 'no charts match those filters.')}
+        </p>
       )}
       <div className="mx-auto max-w-7xl space-y-14 px-4 md:px-6">
         {groups
@@ -209,7 +215,10 @@ export function Gallery({
               <div className={`grid gap-x-6 gap-y-8 ${cols}`}>
                 {g.entries.map((e) => (
                   <div key={e.id}>
-                    <Card onClick={() => onOpen(e)} title="abrir en el editor">
+                    <Card
+                      onClick={() => onOpen(e)}
+                      title={L('abrir en el editor', 'open in the editor')}
+                    >
                       <LazyPoster data={data} spec={entrySpec(e, { format, locale })} />
                     </Card>
                     <p className="mt-2.5 truncate text-sm font-semibold lowercase">
@@ -217,7 +226,7 @@ export function Gallery({
                     </p>
                     <p className="text-xs text-white-50 lowercase">
                       {sourceName(e.source)},{' '}
-                      {KIND_LABEL[e.kind === 'featured' ? 'bars' : e.kind].es}
+                      {KIND_LABEL[e.kind === 'featured' ? 'bars' : e.kind][locale]}
                     </p>
                   </div>
                 ))}
