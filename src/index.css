@@ -58,6 +58,8 @@ html[data-brand='laaabs'] :is(button, input, textarea, a):focus-visible {
 
 html,
 body {
+  /* no elastic bounce: when a view does not scroll, it stays put */
+  overscroll-behavior: none;
   background: var(--color-bg);
   color: #fff;
   font-weight: 500;

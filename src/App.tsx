@@ -67,6 +67,7 @@ export function App() {
     () => initial.spec ?? applyTemplate(TEMPLATES[0], { ...DEFAULT_SPEC, locale: getLang() }),
   )
   const [step, setStep] = useState<Step | null>(2)
+  const [done, setDone] = useState<Step[]>([1])
   const [busy, setBusy] = useState<string | null>(null)
   const [model, setModel] = useState<string | null>(null)
   const [saved, setSaved] = useState<SavedChart[]>(loadSaved)
@@ -124,6 +125,8 @@ export function App() {
     pristine.current = true
     setSpec(next)
     setStep(at)
+    // a chart from the gallery arrives with its first step already answered
+    setDone(([1, 2, 3, 4] as Step[]).filter((n) => n < at))
     go('editor')
   }
 
@@ -306,7 +309,10 @@ export function App() {
   )
 
   return (
-    <div className="flex min-h-dvh flex-col">
+    // in the editor the whole page is exactly one screen: header, editor, footer
+    <div
+      className={`flex min-h-dvh flex-col ${view === 'editor' ? 'lg:h-dvh lg:overflow-hidden' : ''}`}
+    >
       <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-4 border-b border-white-20 bg-bg px-4 md:px-6">
         <button onClick={() => go('gallery')} className="flex items-center gap-3">
           <svg
@@ -368,7 +374,7 @@ export function App() {
         </div>
       </header>
 
-      <div className="flex-1">
+      <div className="min-h-0 flex-1">
         {view === 'gallery' && (
           <Gallery
             data={data}
@@ -411,7 +417,7 @@ export function App() {
 
         {view === 'editor' && (
           // the editor fills the screen exactly: the page never scrolls, only the sidebar does
-          <div className="lg:grid lg:h-[calc(100dvh-3.5rem)] lg:grid-cols-[400px_1fr] lg:overflow-hidden">
+          <div className="lg:grid lg:h-full lg:grid-cols-[400px_1fr] lg:overflow-hidden">
             <aside className="scrollbar-thin border-white-20 lg:h-full lg:overflow-y-auto lg:border-r">
               <Editor
                 data={data}
@@ -420,6 +426,8 @@ export function App() {
                 exportPanel={exportPanel}
                 step={step}
                 onStep={setStep}
+                done={done}
+                onDone={(n) => setDone((cur) => (cur.includes(n) ? cur : [...cur, n]))}
               />
             </aside>
             {/* the poster sits in the middle of the space next to the sidebar,
@@ -452,6 +460,7 @@ export function App() {
               pristine.current = false
               setSpec({ ...c.spec, locale: lang })
               setStep(3)
+              setDone([1, 2])
               go('editor')
             }}
             onDuplicate={(c) =>
@@ -474,7 +483,7 @@ export function App() {
         {view === 'models' && <DataView data={data} onSelect={setModel} />}
       </div>
 
-      {view !== 'editor' && <Footer data={data} status={status} />}
+      <Footer data={data} status={status} compact={view === 'editor'} />
       {model && (
         <ModelDrawer
           data={data}
@@ -560,7 +569,16 @@ function Saved({
   )
 }
 
-function Footer({ data, status }: { data: Dataset; status: DataStatus | null }) {
+function Footer({
+  data,
+  status,
+  compact,
+}: {
+  data: Dataset
+  status: DataStatus | null
+  // one line, for the editor, where the page must not grow past the screen
+  compact?: boolean
+}) {
   const other =
     BRAND.id === 'aaa'
       ? {
@@ -569,9 +587,13 @@ function Footer({ data, status }: { data: Dataset; status: DataStatus | null }) 
         }
       : { href: import.meta.env.BASE_URL, label: L('edición aaa.', 'aaa. edition') }
   return (
-    <footer className="border-t border-white-20 px-4 py-8 text-xs text-white-50 md:px-6">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-start justify-between gap-6">
-        <p className="max-w-xl">
+    <footer
+      className={`shrink-0 border-t border-white-20 px-4 text-xs text-white-50 md:px-6 ${compact ? 'py-3' : 'py-8'}`}
+    >
+      <div
+        className={`mx-auto flex justify-between gap-6 ${compact ? 'items-center' : 'max-w-7xl flex-wrap items-start'}`}
+      >
+        <p className={compact ? 'min-w-0 truncate' : 'max-w-xl'}>
           {L('datos de', 'data from')}{' '}
           {data.sources
             .filter((s) => s.ok && s.id !== 'manual')
@@ -591,7 +613,7 @@ function Footer({ data, status }: { data: Dataset; status: DataStatus | null }) 
           {L('cada gráfica cita las fuentes que usa.', 'every chart credits the sources it uses.')}{' '}
           <DataAge data={data} status={status} />
         </p>
-        <div className="flex gap-5">
+        <div className="flex shrink-0 gap-5">
           <a href={other.href} className="hover:text-white">
             {other.label}
           </a>
@@ -655,7 +677,7 @@ function Preview({
     // poster itself that sits in the middle
     <div
       className="relative w-full"
-      style={{ maxWidth: `min(100%, calc((100dvh - 12rem) * ${w / h}))` }}
+      style={{ maxWidth: `min(100%, calc((100dvh - 15rem) * ${w / h}))` }}
     >
       <div className="overflow-hidden rounded-xl shadow-[0_0_0_1px_rgba(255,255,255,0.2),0_30px_80px_-20px_rgba(0,0,0,0.35)]">
         <InteractivePoster data={data} spec={spec} onSelect={onSelect} />

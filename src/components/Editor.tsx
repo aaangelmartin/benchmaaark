@@ -3,7 +3,7 @@
 //   2. laboratorios       every lab, by logo
 //   3. modelos            plain lists grouped by lab: toggle, star, efforts
 //   4. aspecto            format, language, text and style
-import { type ReactNode, useMemo, useState } from 'react'
+import { type ReactNode, useMemo, useState, useEffect, useRef } from 'react'
 import { SOURCE_ORDER } from '../charts/catalogue.ts'
 import { Marker } from '../charts/primitives.tsx'
 import {
@@ -57,6 +57,8 @@ export function Editor({
   exportPanel,
   step,
   onStep,
+  done,
+  onDone,
 }: {
   data: Dataset
   spec: ChartSpec
@@ -64,6 +66,9 @@ export function Editor({
   exportPanel: ReactNode
   step: Step | null
   onStep: (s: Step | null) => void
+  // steps already gone through: they show a tick instead of their number
+  done: Step[]
+  onDone: (s: Step) => void
 }) {
   const r = useMemo(() => resolve(data, spec), [data, spec])
   const metricById = useMemo(() => new Map(data.metrics.map((m) => [m.id, m])), [data])
@@ -101,7 +106,11 @@ export function Editor({
         summary={`${TYPES.find((t) => t.value === spec.type)?.label}: ${metricSummary}`}
         open={step === 1}
         onToggle={() => toggle(1)}
-        onNext={() => onStep(2)}
+        done={done.includes(1)}
+        onNext={() => {
+          onDone(1)
+          onStep(2)
+        }}
       >
         <div className="grid grid-cols-2 gap-2">
           {TYPES.map((t) => (
@@ -131,7 +140,11 @@ export function Editor({
         summary={labSummary}
         open={step === 2}
         onToggle={() => toggle(2)}
-        onNext={() => onStep(3)}
+        done={done.includes(2)}
+        onNext={() => {
+          onDone(2)
+          onStep(3)
+        }}
       >
         <LabsStep data={data} spec={spec} r={r} onChange={(labs) => setF({ labs })} />
       </StepBox>
@@ -142,7 +155,11 @@ export function Editor({
         summary={`${r.shown.size} ${L('en la gráfica', 'on the chart')}${spec.highlight.length ? `, ${spec.highlight.length} ${L('destacados', 'highlighted')}` : ''}`}
         open={step === 3}
         onToggle={() => toggle(3)}
-        onNext={() => onStep(4)}
+        done={done.includes(3)}
+        onNext={() => {
+          onDone(3)
+          onStep(4)
+        }}
       >
         <ModelsStep data={data} spec={spec} r={r} onChange={onChange} setF={setF} />
       </StepBox>
@@ -154,7 +171,11 @@ export function Editor({
         open={step === 4}
         onToggle={() => toggle(4)}
         // the last step closes everything, leaving the summaries and the export bar
-        onNext={() => onStep(null)}
+        done={done.includes(4)}
+        onNext={() => {
+          onDone(4)
+          onStep(null)
+        }}
         last
       >
         <Group title={L('formato', 'format')}>
@@ -333,6 +354,7 @@ function StepBox({
   onToggle,
   onNext,
   last,
+  done,
   children,
 }: {
   n: number
@@ -342,15 +364,51 @@ function StepBox({
   onToggle: () => void
   onNext?: () => void
   last?: boolean
+  done?: boolean
   children: ReactNode
 }) {
+  // when a step opens, the sidebar is not left half scrolled from the previous one
+  const ref = useRef<HTMLElement>(null)
+  const first = useRef(true)
+  useEffect(() => {
+    if (first.current) {
+      first.current = false
+      return
+    }
+    const el = ref.current
+    const side = el?.closest('aside')
+    if (!open || !el || !side) return
+    // back to the top when the step's header still shows from there, so the
+    // earlier steps and their ticks stay in view; otherwise down to the step
+    if (el.offsetTop + 160 < side.clientHeight) side.scrollTo({ top: 0, behavior: 'smooth' })
+    else el.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  }, [open])
+
   return (
-    <section className="border-b border-white-20">
+    // scroll-mt leaves room for the export bar pinned at the top of the sidebar
+    <section ref={ref} className="scroll-mt-28 border-b border-white-20">
       <button onClick={onToggle} className="flex w-full items-center gap-3 px-5 py-4 text-left">
+        {/* done: filled with a tick. current: a strong ring. still to do: faint */}
         <span
-          className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-bold ${open ? 'bg-solid text-on-solid' : 'border border-white-50'}`}
+          className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-bold transition-colors duration-300 ${done ? 'bg-solid text-on-solid' : open ? 'border-2 border-white' : 'border border-white-30 text-white-50'}`}
         >
-          {n}
+          {done ? (
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 14 14"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-label={L('hecho', 'done')}
+            >
+              <path d="M2.5 7.5l3 3 6-6.5" />
+            </svg>
+          ) : (
+            n
+          )}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block font-semibold">{title}</span>
